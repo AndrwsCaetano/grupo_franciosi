@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
+    />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Meu perfil | Agrigestão</title>
+  </head>
+  <body
+    x-data="{ page: 'me', pageName: 'Meu perfil', 'loaded': true, 'darkMode': false, 'stickyMenu': false, 'sidebarToggle': false, 'scrollTop': false }"
+    x-init="
+         darkMode = JSON.parse(localStorage.getItem('darkMode'));
+         $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(value)))"
+    :class="{'dark bg-gray-900': darkMode === true}"
+  >
+    <include src="./partials/preloader.html"></include>
+
+    <div class="flex h-screen overflow-hidden">
+      <include src="./partials/sidebar.html"></include>
+
+      <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto">
+        <include src="./partials/overlay.html" />
+        <include src="./partials/header.html" />
+
+        <main>
+          <div class="p-4 mx-auto max-w-(--breakpoint-xl) md:p-6" x-data="mePage()" x-init="init()">
+            <include src="./partials/breadcrumb.html" />
+
+            <div x-show="error" x-cloak class="mb-3 rounded-lg border border-error-500/40 bg-error-500/10 px-4 py-3 text-sm text-error-700 dark:text-error-400" x-text="error"></div>
+
+            <template x-if="loading">
+              <div class="rounded-2xl border border-gray-200 bg-white p-8 text-center text-gray-500 dark:border-gray-800 dark:bg-white/[0.03]">
+                Carregando…
+              </div>
+            </template>
+
+            <div x-show="!loading && me" x-cloak class="grid grid-cols-1 gap-5 lg:grid-cols-3">
+              <!-- Card identidade -->
+              <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:col-span-1">
+                <div class="flex flex-col items-center text-center">
+                  <span
+                    class="flex h-20 w-20 items-center justify-center rounded-full bg-brand-500 text-2xl font-semibold text-white"
+                    x-text="(me?.name || me?.email || '?').trim().split(/\s+/).map(s => s[0]).slice(0,2).join('').toUpperCase()"
+                  ></span>
+                  <h3 class="mt-3 text-lg font-semibold text-gray-800 dark:text-white/90" x-text="me?.name || '—'"></h3>
+                  <p class="text-sm text-gray-500" x-text="me?.email || ''"></p>
+                  <div class="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+                    <span x-show="me?.active" class="rounded-full bg-success-500/15 px-2.5 py-0.5 text-xs font-medium text-success-700 dark:text-success-400">Ativo</span>
+                    <span x-show="!me?.active" class="rounded-full bg-gray-500/15 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-400">Inativo</span>
+                    <span x-show="me?.isAdmin" class="rounded-full bg-warning-500/15 px-2.5 py-0.5 text-xs font-medium text-warning-700 dark:text-warning-400">Administrador</span>
+                  </div>
+                </div>
+
+                <dl class="mt-5 space-y-3 text-sm">
+                  <div class="flex items-center justify-between">
+                    <dt class="text-gray-500">Perfis</dt>
+                    <dd class="font-medium text-gray-800 dark:text-white/90 text-right" x-text="profileNames()"></dd>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <dt class="text-gray-500">Liberações efetivas</dt>
+                    <dd class="font-medium text-gray-800 dark:text-white/90" x-text="permissionsCount() + ' opção(ões)'"></dd>
+                  </div>
+                  <div class="flex items-center justify-between" x-show="me?.dashboards?.length">
+                    <dt class="text-gray-500">Dashboards liberados</dt>
+                    <dd class="font-medium text-gray-800 dark:text-white/90" x-text="me?.dashboards?.length || 0"></dd>
+                  </div>
+                </dl>
+              </div>
+
+              <!-- Card alterar senha -->
+              <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:col-span-2">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Alterar senha</h3>
+                <p class="mt-1 text-sm text-gray-500">
+                  Após alterar, você precisará entrar novamente com a nova senha.
+                </p>
+
+                <div x-show="pwdError" x-cloak class="mt-4 rounded-lg border border-error-500/40 bg-error-500/10 px-4 py-3 text-sm text-error-700 dark:text-error-400" x-text="pwdError"></div>
+                <div x-show="pwdSuccess" x-cloak class="mt-4 rounded-lg border border-success-500/40 bg-success-500/10 px-4 py-3 text-sm text-success-700 dark:text-success-400" x-text="pwdSuccess"></div>
+
+                <form @submit.prevent="submitPwd()" class="mt-4 space-y-4">
+                  <div>
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Senha atual</label>
+                    <div class="relative">
+                      <input
+                        :type="pwd.showCurrent ? 'text' : 'password'"
+                        x-model="pwd.currentPassword"
+                        autocomplete="current-password"
+                        required
+                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 pr-12 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                      />
+                      <button type="button" @click="pwd.showCurrent = !pwd.showCurrent" class="absolute inset-y-0 right-3 flex items-center text-xs text-gray-500 hover:text-gray-700">
+                        <span x-text="pwd.showCurrent ? 'Ocultar' : 'Ver'"></span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Nova senha (mín. 8 caracteres)</label>
+                      <div class="relative">
+                        <input
+                          :type="pwd.showNew ? 'text' : 'password'"
+                          x-model="pwd.newPassword"
+                          autocomplete="new-password"
+                          minlength="8"
+                          required
+                          class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 pr-12 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                        />
+                        <button type="button" @click="pwd.showNew = !pwd.showNew" class="absolute inset-y-0 right-3 flex items-center text-xs text-gray-500 hover:text-gray-700">
+                          <span x-text="pwd.showNew ? 'Ocultar' : 'Ver'"></span>
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Confirmar nova senha</label>
+                      <div class="relative">
+                        <input
+                          :type="pwd.showConfirm ? 'text' : 'password'"
+                          x-model="pwd.confirmPassword"
+                          autocomplete="new-password"
+                          minlength="8"
+                          required
+                          class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 pr-12 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                        />
+                        <button type="button" @click="pwd.showConfirm = !pwd.showConfirm" class="absolute inset-y-0 right-3 flex items-center text-xs text-gray-500 hover:text-gray-700">
+                          <span x-text="pwd.showConfirm ? 'Ocultar' : 'Ver'"></span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="flex justify-end gap-2 border-t border-gray-200 pt-4 dark:border-gray-800">
+                    <button type="button" @click="resetPwd()" :disabled="pwdSaving" class="h-11 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-70 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]">Limpar</button>
+                    <button type="submit" :disabled="pwdSaving || !!pwdSuccess" class="h-11 rounded-lg bg-brand-500 px-5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-70">
+                      <span x-show="!pwdSaving">Alterar senha</span>
+                      <span x-show="pwdSaving">Alterando…</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

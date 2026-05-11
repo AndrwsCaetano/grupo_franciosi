@@ -1,0 +1,263 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DataSourceType {
+  MARIADB
+  POSTGRES
+  ORACLE
+  SQLSERVER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  active       Boolean  @default(true)
+  /// Quando true, o usuário tem acesso a todas as opções (super-admin),
+  /// independentemente de perfis ou liberações pontuais.
+  isAdmin      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profiles            UserProfile[]
+  permissionOverrides UserPermission[]
+  dashboards          UserDashboard[]
+  refreshTokens       RefreshToken[]
+  drivers             Driver[]
+  fuelingsCreated     VehicleFueling[] @relation("FuelingCreatedBy")
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       UserProfile[]
+  permissions ProfilePermission[]
+}
+
+model UserProfile {
+  userId     String
+  profileId  String
+  assignedAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@id([userId, profileId])
+}
+
+/// Opção do sistema (menu, ação, módulo). Código estável para checagem na API e no front.
+model Permission {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  profilePermissions ProfilePermission[]
+  userPermissions    UserPermission[]
+}
+
+/// Liberação por perfil
+model ProfilePermission {
+  profileId    String
+  permissionId String
+  granted      Boolean @default(true)
+
+  profile    Profile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, permissionId])
+}
+
+/// Override direto no usuário (concede ou revoga em relação ao que vier dos perfis)
+model UserPermission {
+  userId       String
+  permissionId String
+  granted      Boolean
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, permissionId])
+}
+
+model DataSource {
+  id           String         @id @default(cuid())
+  name         String
+  type         DataSourceType
+  host         String
+  port         Int
+  databaseName String
+  username     String
+  /// Senha cifrada ou texto — em produção usar KMS/Vault e apenas referência
+  passwordEnc  String
+  ssl          Boolean        @default(false)
+  extra        Json?
+  active       Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  dashboards Dashboard[]
+}
+
+/// Dashboard dinâmico (consulta/view em banco externo). `definition` guarda SQL, parâmetros, layout.
+model Dashboard {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  description  String?
+  definition   Json
+  dataSourceId String?
+  dataSource   DataSource? @relation(fields: [dataSourceId], references: [id], onDelete: SetNull)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignments UserDashboard[]
+}
+
+/// Quais dashboards cada usuário pode abrir (liberação explícita)
+model UserDashboard {
+  userId      String
+  dashboardId String
+  assignedAt  DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@id([userId, dashboardId])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Cadastro de veículo. `plate` é única.
+model Vehicle {
+  id              String   @id @default(cuid())
+  plate           String   @unique
+  brand           String
+  model           String
+  /// Capacidade do tanque em litros (0–9999).
+  fuelTankLiters  Int
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  assignments DriverVehicleAssignment[]
+  fuelings    VehicleFueling[]
+}
+
+/// Cadastro de motorista. CPF único; pode (opcionalmente) referenciar um usuário do sistema.
+model Driver {
+  id                  String   @id @default(cuid())
+  userId              String?
+  /// Nome em CAIXA ALTA (normalizado pelo backend).
+  name                String
+  birthDate           DateTime @db.Date
+  /// CPF apenas em dígitos (sem máscara).
+  cpf                 String   @unique
+  /// Número da CNH em CAIXA ALTA.
+  licenseNumber       String
+  licenseIssueDate    DateTime @db.Date
+  licenseExpiryDate   DateTime @db.Date
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user          User?                     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  assignments   DriverVehicleAssignment[]
+  fuelings      VehicleFueling[]
+  refreshTokens DriverRefreshToken[]
+
+  @@index([userId])
+}
+
+model DriverRefreshToken {
+  id        String   @id @default(cuid())
+  driverId  String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@index([driverId])
+}
+
+/// Vínculo motorista <-> veículo por período. `endDate` nulo = vínculo ainda em aberto.
+/// Regra de negócio (validada no service):
+///  - um motorista só pode ter UM vínculo aberto por vez;
+///  - uma placa só pode ter UM vínculo aberto por vez (precisa finalizar para liberar).
+model DriverVehicleAssignment {
+  id          String    @id @default(cuid())
+  driverId    String
+  vehicleId   String
+  startDate   DateTime  @db.Date
+  endDate     DateTime? @db.Date
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  driver  Driver  @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
+  @@index([driverId])
+  @@index([vehicleId])
+  @@index([driverId, endDate])
+  @@index([vehicleId, endDate])
+}
+
+/// Apontamento de abastecimento de veículo.
+/// `createdAt` (dt_lancamento) e `createdById` (id_lancador admin, quando houver) são imutáveis após criação.
+/// `driverNameSnapshot` guarda o nome do motorista no momento do lançamento.
+/// `dataSincronizacao`: instante em que o servidor persistiu o registro (sync concluído).
+model VehicleFueling {
+  id                 String    @id @default(uuid())
+  driverId           String
+  vehicleId          String
+  /// Snapshot do nome do motorista (CAIXA ALTA) na hora do lançamento.
+  driverNameSnapshot String
+  fuelDate           DateTime  @db.Date
+  /// Quantidade abastecida (litros), com 2 casas.
+  quantityLiters     Decimal   @db.Decimal(10, 2)
+  /// Hodômetro / quilometragem do veículo no momento do abastecimento.
+  odometerKm         Int?
+  /// Caminho relativo do comprovante salvo no servidor.
+  receiptImagePath   String?
+  notes              String?
+  /// Preenchido pelo app motorista para evitar duplicatas ao reenviar a fila offline.
+  offlineClientId    String?   @unique
+  /// Momento em que o registro foi gravado no servidor (sincronização).
+  dataSincronizacao  DateTime? @map("data_sincronizacao")
+  createdById        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  driver    Driver @relation(fields: [driverId], references: [id], onDelete: Restrict)
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  createdBy User?   @relation("FuelingCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([driverId])
+  @@index([vehicleId])
+  @@index([fuelDate])
+  @@index([createdAt])
+}

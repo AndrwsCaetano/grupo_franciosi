@@ -1,0 +1,27 @@
+{
+  "name": "grupo-franciosi",
+  "private": true,
+  "description": "Monorepo Grupo Franciosi — API Nest, painel web-admin, PWA e pacotes partilhados.",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "build": "turbo run build",
+    "dev:api": "npm run start:dev -w api",
+    "dev:admin": "npm run start -w web-admin",
+    "dev:pwa": "npm run dev -w pwa",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres",
+    "db:migrate": "npm run prisma:migrate -w api",
+    "db:seed": "npm run prisma:seed -w api",
+    "deploy:prepare": "bash scripts/prepare-env-production.sh",
+    "deploy:caddy": "bash scripts/prepare-caddyfile.sh",
+    "deploy:prod": "bash scripts/deploy-prod.sh"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "npm@11.12.1"
+}

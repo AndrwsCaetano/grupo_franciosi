@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
+    />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Conexões | Agrigestão</title>
+  </head>
+  <body
+    x-data="{ page: 'connections', pageName: 'Conexões', 'loaded': true, 'darkMode': false, 'stickyMenu': false, 'sidebarToggle': false, 'scrollTop': false }"
+    x-init="
+         darkMode = JSON.parse(localStorage.getItem('darkMode'));
+         $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(value)))"
+    :class="{'dark bg-gray-900': darkMode === true}"
+  >
+    <include src="./partials/preloader.html"></include>
+
+    <div class="flex h-screen overflow-hidden">
+      <include src="./partials/sidebar.html"></include>
+
+      <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto">
+        <include src="./partials/overlay.html" />
+        <include src="./partials/header.html" />
+
+        <main>
+          <div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6" x-data="connectionsPage()" x-init="init()">
+            <include src="./partials/breadcrumb.html" />
+
+            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+              <div class="flex flex-col gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Conexões com bancos externos</h3>
+                  <p class="text-xs text-gray-500">Cadastre as conexões que serão usadas em dashboards e relatórios.</p>
+                </div>
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <input
+                    type="search"
+                    x-model="q"
+                    placeholder="Buscar por nome, host, banco…"
+                    class="dark:bg-dark-900 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 sm:w-64"
+                  />
+                  <button
+                    type="button"
+                    @click="openCreate()"
+                    x-show="canWrite"
+                    class="h-10 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600"
+                  >
+                    + Nova conexão
+                  </button>
+                </div>
+              </div>
+
+              <div x-show="error" x-cloak class="mx-5 mt-4 rounded-lg border border-error-500/40 bg-error-500/10 px-4 py-3 text-sm text-error-700 dark:text-error-400" x-text="error"></div>
+
+              <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                  <thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-white/[0.02] dark:text-gray-400">
+                    <tr>
+                      <th class="cursor-pointer px-5 py-3 text-left" @click="sortBy('name')">
+                        Nome <span x-text="sortIndicator('name')"></span>
+                      </th>
+                      <th class="cursor-pointer px-5 py-3 text-left" @click="sortBy('type')">
+                        Tipo <span x-text="sortIndicator('type')"></span>
+                      </th>
+                      <th class="cursor-pointer px-5 py-3 text-left" @click="sortBy('host')">
+                        Servidor <span x-text="sortIndicator('host')"></span>
+                      </th>
+                      <th class="px-5 py-3 text-left">Banco / serviço</th>
+                      <th class="px-5 py-3 text-left">Usuário</th>
+                      <th class="cursor-pointer px-5 py-3 text-left" @click="sortBy('active')">
+                        Status <span x-text="sortIndicator('active')"></span>
+                      </th>
+                      <th class="px-5 py-3 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+                    <template x-if="loading">
+                      <tr><td colspan="7" class="px-5 py-6 text-center text-gray-500">Carregando…</td></tr>
+                    </template>
+                    <template x-if="!loading && filtered().length === 0">
+                      <tr><td colspan="7" class="px-5 py-6 text-center text-gray-500">Nenhuma conexão cadastrada.</td></tr>
+                    </template>
+                    <template x-for="it in filtered()" :key="it.id">
+                      <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                        <td class="px-5 py-3 font-medium text-gray-800 dark:text-white/90" x-text="it.name"></td>
+                        <td class="px-5 py-3 text-gray-700 dark:text-gray-300" x-text="typeLabel(it.type)"></td>
+                        <td class="px-5 py-3 text-gray-700 dark:text-gray-300">
+                          <span x-text="it.host"></span><span class="text-gray-400">:</span><span x-text="it.port"></span>
+                        </td>
+                        <td class="px-5 py-3 text-gray-700 dark:text-gray-300" x-text="it.databaseName"></td>
+                        <td class="px-5 py-3 text-gray-700 dark:text-gray-300" x-text="it.username"></td>
+                        <td class="px-5 py-3">
+                          <span x-show="it.active" class="rounded-full bg-success-500/15 px-2.5 py-0.5 text-xs font-medium text-success-700 dark:text-success-400">Ativa</span>
+                          <span x-show="!it.active" class="rounded-full bg-gray-500/15 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-400">Inativa</span>
+                        </td>
+                        <td class="px-5 py-3 text-right whitespace-nowrap">
+                          <div x-show="rowTestResult && rowTestResult.id === it.id" x-cloak class="mb-1 text-xs">
+                            <span x-show="rowTestResult && rowTestResult.ok" class="text-success-600 dark:text-success-400">
+                              OK<span x-show="rowTestResult && rowTestResult.latencyMs" x-text="' (' + (rowTestResult && rowTestResult.latencyMs) + ' ms)'"></span>
+                            </span>
+                            <span x-show="rowTestResult && !rowTestResult.ok" class="text-error-600 dark:text-error-400" x-text="(rowTestResult && rowTestResult.error) ? rowTestResult.error.slice(0,80) : 'Falha'"></span>
+                          </div>
+                          <button type="button" @click="testRow(it)" :disabled="rowTesting === it.id" class="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-gray-300">
+                            <span x-show="rowTesting !== it.id">Testar</span>
+                            <span x-show="rowTesting === it.id">Testando…</span>
+                          </button>
+                          <button type="button" @click="openEdit(it)" x-show="canWrite" class="ml-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Editar</button>
+                          <button type="button" @click="askDelete(it)" x-show="canWrite" class="ml-1 rounded-md border border-error-200 px-2 py-1 text-xs text-error-600 hover:bg-error-50 dark:border-error-500/40 dark:text-error-400">Excluir</button>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Form Modal -->
+            <div x-show="showForm" x-cloak class="fixed inset-0 z-9999 flex items-center justify-center bg-black/50 p-4">
+              <div class="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-gray-900">
+                <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-800">
+                  <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">
+                    <span x-show="!form.id">Nova conexão</span>
+                    <span x-show="form.id">Editar conexão</span>
+                  </h3>
+                  <button type="button" @click="closeForm()" class="text-gray-500 hover:text-gray-700">✕</button>
+                </div>
+
+                <form @submit.prevent="save()" class="grid max-h-[80vh] grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2">
+                  <div x-show="formError" x-cloak class="rounded-lg border border-error-500/40 bg-error-500/10 px-4 py-3 text-sm text-error-700 dark:text-error-400 sm:col-span-2" x-text="formError"></div>
+
+                  <div class="sm:col-span-2">
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Nome *</label>
+                    <input type="text" x-model="form.name" required maxlength="60" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                  </div>
+
+                  <div>
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Tipo *</label>
+                    <select x-model="form.type" @change="onTypeChange()" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                      <template x-for="opt in typeOptions" :key="opt">
+                        <option :value="opt" x-text="typeLabels[opt] || opt"></option>
+                      </template>
+                    </select>
+                  </div>
+
+                  <div class="grid grid-cols-3 gap-3">
+                    <div class="col-span-2">
+                      <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Servidor (host) *</label>
+                      <input type="text" x-model="form.host" required class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                    </div>
+                    <div>
+                      <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Porta *</label>
+                      <input type="number" min="1" max="65535" x-model.number="form.port" required class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                      <span x-show="form.type !== 'ORACLE'">Nome do banco *</span>
+                      <span x-show="form.type === 'ORACLE'">Nome do serviço (service name) *</span>
+                    </label>
+                    <input type="text" x-model="form.databaseName" :required="form.type !== 'ORACLE'" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                    <p x-show="form.type === 'ORACLE'" class="mt-1 text-xs text-gray-500">Para usar SID em vez de Service name, deixe em branco e use o campo "Avançado" abaixo: <code>{ "sid": "XE" }</code></p>
+                  </div>
+
+                  <div>
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Usuário *</label>
+                    <input type="text" x-model="form.username" required autocomplete="off" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                  </div>
+
+                  <div>
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                      <span x-show="!form.id">Senha *</span>
+                      <span x-show="form.id">Senha <span class="text-gray-400">(em branco = manter atual)</span></span>
+                    </label>
+                    <input type="password" x-model="form.password" :required="!form.id" autocomplete="new-password" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                  </div>
+
+                  <div class="flex items-center gap-6 sm:col-span-2">
+                    <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                      <input type="checkbox" x-model="form.ssl" class="h-4 w-4 rounded border-gray-300 text-brand-500" />
+                      Usar SSL/TLS
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                      <input type="checkbox" x-model="form.active" class="h-4 w-4 rounded border-gray-300 text-brand-500" />
+                      Ativa
+                    </label>
+                  </div>
+
+                  <div class="sm:col-span-2">
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Avançado (JSON, opcional)</label>
+                    <textarea x-model="form.extraText" rows="3" placeholder='{"sid":"XE"} ou {"instance":"SQLEXPRESS"}' class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent p-3 font-mono text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
+                  </div>
+
+                  <!-- Test result -->
+                  <div x-show="testResult" x-cloak class="rounded-lg px-4 py-3 text-sm sm:col-span-2"
+                    :class="testResult && testResult.ok ? 'border border-success-500/40 bg-success-500/10 text-success-700 dark:text-success-400' : 'border border-error-500/40 bg-error-500/10 text-error-700 dark:text-error-400'">
+                    <div class="font-medium">
+                      <span x-show="testResult && testResult.ok">Conexão OK</span>
+                      <span x-show="testResult && !testResult.ok">Falha na conexão</span>
+                      <span x-show="testResult && testResult.latencyMs" x-text="' • ' + testResult.latencyMs + ' ms'"></span>
+                    </div>
+                    <div class="mt-1 break-words text-xs" x-text="(testResult && (testResult.serverInfo || testResult.error)) || ''"></div>
+                  </div>
+
+                  <div class="flex items-center justify-between gap-2 border-t border-gray-200 pt-4 dark:border-gray-800 sm:col-span-2">
+                    <button type="button" @click="testCurrent()" :disabled="testing" class="h-11 rounded-lg border border-brand-500/40 px-4 text-sm font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-70 dark:text-brand-400 dark:hover:bg-brand-500/10">
+                      <span x-show="!testing">Testar conexão</span>
+                      <span x-show="testing">Testando…</span>
+                    </button>
+                    <div class="flex gap-2">
+                      <button type="button" @click="closeForm()" :disabled="saving" class="h-11 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80">Cancelar</button>
+                      <button type="submit" :disabled="saving" class="h-11 rounded-lg bg-brand-500 px-5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-70">
+                        <span x-show="!saving">Guardar</span>
+                        <span x-show="saving">A guardar…</span>
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <!-- Confirm delete modal -->
+            <div x-show="confirmId" x-cloak class="fixed inset-0 z-9999 flex items-center justify-center bg-black/50 p-4">
+              <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl dark:bg-gray-900">
+                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Excluir conexão?</h3>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  Esta ação não pode ser desfeita. Conexão: <strong x-text="confirmLabel"></strong>
+                </p>
+                <div class="mt-4 flex justify-end gap-2">
+                  <button type="button" @click="cancelDelete()" class="h-10 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80">Cancelar</button>
+                  <button type="button" @click="confirmDelete()" class="h-10 rounded-lg bg-error-500 px-4 text-sm font-medium text-white hover:bg-error-600">Excluir</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

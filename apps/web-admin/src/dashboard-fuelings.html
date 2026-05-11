@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
+    />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Dashboard de Abastecimento | Agrigestão</title>
+  </head>
+  <body
+    x-data="{ page: 'fueling-dashboard', pageName: 'Dashboard de Abastecimento', 'loaded': true, 'darkMode': false, 'stickyMenu': false, 'sidebarToggle': false, 'scrollTop': false }"
+    x-init="
+         darkMode = JSON.parse(localStorage.getItem('darkMode'));
+         $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(value)))"
+    :class="{'dark bg-gray-900': darkMode === true}"
+  >
+    <include src="./partials/preloader.html"></include>
+
+    <div class="flex h-screen overflow-hidden">
+      <include src="./partials/sidebar.html"></include>
+
+      <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto">
+        <include src="./partials/overlay.html" />
+        <include src="./partials/header.html" />
+
+        <main>
+          <div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6" x-data="fuelingDashboardPage()" x-init="init()">
+            <include src="./partials/breadcrumb.html" />
+
+            <!-- Filtros -->
+            <div class="mb-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-5">
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">De</label>
+                  <div class="relative">
+                    <input
+                      type="text"
+                      x-ref="dashDateFrom"
+                      autocomplete="off"
+                      placeholder="dd/mm/aaaa"
+                      class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 pr-11 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                    />
+                    <button
+                      type="button"
+                      @click.prevent="openFromPicker()"
+                      class="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-white"
+                      aria-label="Abrir calendário — data inicial"
+                    >
+                      <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5a2.25 2.25 0 002.25-2.25m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5a2.25 2.25 0 012.25 2.25v7.5" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Até</label>
+                  <div class="relative">
+                    <input
+                      type="text"
+                      x-ref="dashDateTo"
+                      autocomplete="off"
+                      placeholder="dd/mm/aaaa"
+                      class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 pr-11 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                    />
+                    <button
+                      type="button"
+                      @click.prevent="openToPicker()"
+                      class="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-white"
+                      aria-label="Abrir calendário — data final"
+                    >
+                      <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5a2.25 2.25 0 002.25-2.25m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5a2.25 2.25 0 012.25 2.25v7.5" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Placa</label>
+                  <select x-model="filters.vehicleId" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                    <option value="">Todas</option>
+                    <template x-for="v in vehicles" :key="v.id">
+                      <option :value="v.id" x-text="v.plate + ' — ' + v.brand + ' ' + v.model"></option>
+                    </template>
+                  </select>
+                </div>
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Motorista</label>
+                  <select x-model="filters.driverId" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                    <option value="">Todos</option>
+                    <template x-for="d in drivers" :key="d.id">
+                      <option :value="d.id" x-text="d.name"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="flex items-end gap-2">
+                  <button type="button" @click="loadStats()" :disabled="loading" class="h-11 flex-1 rounded-lg bg-brand-500 px-5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-70">
+                    <span x-show="!loading">Aplicar filtros</span>
+                    <span x-show="loading">Carregando…</span>
+                  </button>
+                  <button type="button" @click="resetFilters()" class="h-11 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]">Limpar</button>
+                </div>
+              </div>
+
+              <div x-show="error" x-cloak class="mt-4 rounded-lg border border-error-500/40 bg-error-500/10 px-4 py-3 text-sm text-error-700 dark:text-error-400" x-text="error"></div>
+            </div>
+
+            <!-- Cards (KPIs) -->
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Total de litros</p>
+                <h4 class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90" x-text="formatLiters(kpis.totalLiters)"></h4>
+                <p class="mt-1 text-xs text-gray-500" x-text="'Período: ' + periodLabel()"></p>
+              </div>
+              <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Abastecimentos</p>
+                <h4 class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90" x-text="formatInt(kpis.count)"></h4>
+                <p class="mt-1 text-xs text-gray-500">Lançamentos no período</p>
+              </div>
+              <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Média por abast.</p>
+                <h4 class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90" x-text="formatLiters(kpis.avgLitersPerFueling)"></h4>
+                <p class="mt-1 text-xs text-gray-500">Litros por lançamento</p>
+              </div>
+              <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Km percorridos</p>
+                <h4 class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90" x-text="formatKm(kpis.totalKm)"></h4>
+                <p class="mt-1 text-xs text-gray-500">Soma das diferenças por placa</p>
+              </div>
+              <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Veículos</p>
+                <h4 class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90" x-text="formatInt(kpis.uniqueVehicles)"></h4>
+                <p class="mt-1 text-xs text-gray-500">Placas distintas abastecidas</p>
+              </div>
+              <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Motoristas</p>
+                <h4 class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90" x-text="formatInt(kpis.uniqueDrivers)"></h4>
+                <p class="mt-1 text-xs text-gray-500">Motoristas distintos</p>
+              </div>
+            </div>
+
+            <!-- Gráfico mensal -->
+            <div class="mt-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Abastecimentos por mês</h3>
+                <p class="text-xs text-gray-500">Litros (barras) e quantidade de lançamentos (linha)</p>
+              </div>
+              <div id="chart-monthly" class="mt-4"></div>
+              <template x-if="!loading && monthly.length === 0">
+                <p class="py-8 text-center text-sm text-gray-500">Sem dados para o período selecionado.</p>
+              </template>
+            </div>
+
+            <!-- Top placas / Top motoristas -->
+            <div class="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+              <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Top 10 placas (litros)</h3>
+                <div id="chart-top-vehicles" class="mt-4"></div>
+                <template x-if="!loading && topVehicles.length === 0">
+                  <p class="py-8 text-center text-sm text-gray-500">Sem dados.</p>
+                </template>
+              </div>
+              <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Top 10 motoristas (litros)</h3>
+                <div id="chart-top-drivers" class="mt-4"></div>
+                <template x-if="!loading && topDrivers.length === 0">
+                  <p class="py-8 text-center text-sm text-gray-500">Sem dados.</p>
+                </template>
+              </div>
+            </div>
+
+            <!-- Tabelas detalhe -->
+            <div class="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+              <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Detalhe — placas</h3>
+                <div class="mt-3 overflow-x-auto">
+                  <table class="min-w-full text-left text-sm">
+                    <thead class="border-b border-gray-200 text-xs uppercase text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                      <tr>
+                        <th class="px-3 py-2">#</th>
+                        <th class="px-3 py-2">Placa</th>
+                        <th class="px-3 py-2 text-right">Litros</th>
+                        <th class="px-3 py-2 text-right">Abast.</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                      <template x-for="(v, idx) in topVehicles" :key="v.vehicleId">
+                        <tr>
+                          <td class="px-3 py-2 text-gray-500" x-text="idx + 1"></td>
+                          <td class="px-3 py-2 font-medium text-gray-800 dark:text-white/90">
+                            <span x-text="v.plate"></span>
+                            <span class="text-xs text-gray-500" x-text="' — ' + v.brand + ' ' + v.model"></span>
+                          </td>
+                          <td class="px-3 py-2 text-right text-gray-700 dark:text-gray-300" x-text="formatLiters(v.liters)"></td>
+                          <td class="px-3 py-2 text-right text-gray-700 dark:text-gray-300" x-text="formatInt(v.count)"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Detalhe — motoristas</h3>
+                <div class="mt-3 overflow-x-auto">
+                  <table class="min-w-full text-left text-sm">
+                    <thead class="border-b border-gray-200 text-xs uppercase text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                      <tr>
+                        <th class="px-3 py-2">#</th>
+                        <th class="px-3 py-2">Motorista</th>
+                        <th class="px-3 py-2 text-right">Litros</th>
+                        <th class="px-3 py-2 text-right">Abast.</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                      <template x-for="(d, idx) in topDrivers" :key="d.driverId">
+                        <tr>
+                          <td class="px-3 py-2 text-gray-500" x-text="idx + 1"></td>
+                          <td class="px-3 py-2 font-medium text-gray-800 dark:text-white/90" x-text="d.name"></td>
+                          <td class="px-3 py-2 text-right text-gray-700 dark:text-gray-300" x-text="formatLiters(d.liters)"></td>
+                          <td class="px-3 py-2 text-right text-gray-700 dark:text-gray-300" x-text="formatInt(d.count)"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

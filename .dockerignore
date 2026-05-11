@@ -1,0 +1,36 @@
+**/node_modules
+**/dist
+**/build
+**/.next
+**/.cache
+**/.turbo
+**/coverage
+
+# Logs
+**/*.log
+**/npm-debug.log*
+
+# Editor / SO
+**/.vscode
+**/.idea
+**/.DS_Store
+**/Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Envs locais — não copiar secrets para a imagem.
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.production.example
+
+# Uploads locais (volumes em prod)
+apps/api/uploads/
+
+# Outros
+README.md
+docker-compose.yml
+docker-compose.prod.yml
+# NÃO ignorar Dockerfile/nginx.conf/docker-entrypoint.sh — são usados pelos builds.

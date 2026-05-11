@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
+    />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Motoristas | Grupo Franciosi</title>
+  </head>
+  <body
+    x-data="{ page: 'drivers', pageName: 'Motoristas', 'loaded': true, 'darkMode': false, 'stickyMenu': false, 'sidebarToggle': false, 'scrollTop': false }"
+    x-init="
+         darkMode = JSON.parse(localStorage.getItem('darkMode'));
+         $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(value)))"
+    :class="{'dark bg-gray-900': darkMode === true}"
+  >
+    <include src="./partials/preloader.html"></include>
+
+    <div class="flex h-screen overflow-hidden">
+      <include src="./partials/sidebar.html"></include>
+
+      <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto">
+        <include src="./partials/overlay.html" />
+        <include src="./partials/header.html" />
+
+        <main>
+          <div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6" x-data="driversPage()" x-init="init()">
+            <include src="./partials/breadcrumb.html" />
+
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+              <div class="flex flex-col gap-3 mb-4 md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center gap-2">
+                  <input
+                    type="text"
+                    x-model.debounce.300ms="q"
+                    @input="load()"
+                    placeholder="Pesquisar por nome, CPF ou CNH…"
+                    class="dark:bg-dark-900 h-11 w-full md:w-80 rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                  />
+                  <button type="button" @click="load()" class="inline-flex h-11 items-center rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]">
+                    Atualizar
+                  </button>
+                </div>
+                <button type="button" x-show="canWrite" @click="openNew()" class="inline-flex h-11 items-center justify-center rounded-lg bg-brand-500 px-5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600">
+                  + Novo motorista
+                </button>
+              </div>
+
+              <div x-show="error" x-cloak class="mb-3 rounded-lg border border-error-500/40 bg-error-500/10 px-4 py-3 text-sm text-error-700 dark:text-error-400" x-text="error"></div>
+
+              <div class="overflow-x-auto">
+                <table class="min-w-full text-left text-sm">
+                  <thead class="border-b border-gray-200 text-xs uppercase text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                    <tr>
+                      <th class="cursor-pointer px-4 py-3" @click="sortBy('name')">Nome <span x-text="sortIndicator('name')"></span></th>
+                      <th class="cursor-pointer px-4 py-3" @click="sortBy('cpf')">CPF <span x-text="sortIndicator('cpf')"></span></th>
+                      <th class="cursor-pointer px-4 py-3" @click="sortBy('licenseNumber')">CNH <span x-text="sortIndicator('licenseNumber')"></span></th>
+                      <th class="cursor-pointer px-4 py-3" @click="sortBy('licenseExpiryDate')">Vct. CNH <span x-text="sortIndicator('licenseExpiryDate')"></span></th>
+                      <th class="px-4 py-3">Placa atual</th>
+                      <th class="px-4 py-3 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                    <template x-if="loading">
+                      <tr><td colspan="6" class="px-4 py-6 text-center text-gray-500">Carregando…</td></tr>
+                    </template>
+                    <template x-if="!loading && items.length === 0">
+                      <tr><td colspan="6" class="px-4 py-6 text-center text-gray-500">Nenhum motorista encontrado.</td></tr>
+                    </template>
+                    <template x-for="d in items" :key="d.id">
+                      <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.03]">
+                        <td class="px-4 py-3 font-medium text-gray-800 dark:text-white/90" x-text="d.name"></td>
+                        <td class="px-4 py-3 text-gray-700 dark:text-gray-300" x-text="formatCpfDisplay(d.cpf)"></td>
+                        <td class="px-4 py-3 text-gray-700 dark:text-gray-300" x-text="d.licenseNumber"></td>
+                        <td class="px-4 py-3 text-gray-700 dark:text-gray-300" x-text="formatDate(d.licenseExpiryDate)"></td>
+                        <td class="px-4 py-3 text-gray-700 dark:text-gray-300" x-text="activeAssignmentLabel(d)"></td>
+                        <td class="px-4 py-3 text-right">
+                          <button type="button" x-show="canWrite || canAssign" @click="openEdit(d)" class="mr-2 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]">Editar</button>
+                          <button type="button" x-show="canWrite" @click="askDelete(d)" class="rounded-md border border-error-500/40 px-3 py-1.5 text-xs font-medium text-error-600 hover:bg-error-500/10">Excluir</button>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">Total: <span x-text="total"></span></p>
+            </div>
+
+            <!-- Modal motorista -->
+            <div x-show="showForm" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-900/50 p-4" @keydown.escape.window="closeForm()">
+              <div class="w-full max-w-3xl rounded-2xl bg-white p-6 dark:bg-gray-900" @click.outside="closeForm()">
+                <div class="mb-4 flex items-center justify-between">
+                  <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90" x-text="form.id ? 'Editar motorista' : 'Novo motorista'"></h3>
+                  <button type="button" @click="closeForm()" class="text-gray-500 hover:text-gray-700">×</button>
+                </div>
+
+                <!-- Tabs -->
+                <div class="mb-4 flex gap-2 border-b border-gray-200 dark:border-gray-800">
+                  <button type="button" @click="formTab = 'data'" :class="formTab === 'data' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500'" class="border-b-2 px-3 pb-2 text-sm font-medium">Dados</button>
+                  <button type="button" @click="formTab = 'assignments'" :disabled="!form.id" :class="[formTab === 'assignments' ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500', !form.id ? 'opacity-50 cursor-not-allowed' : '']" class="border-b-2 px-3 pb-2 text-sm font-medium">
+                    Vínculos com placa
+                    <span x-show="!form.id" class="text-xs text-gray-400">(disponível após gravar)</span>
+                  </button>
+                </div>
+
+                <!-- Aba Dados -->
+                <div x-show="formTab === 'data'">
+                  <form @submit.prevent="save()" class="space-y-4">
+                    <div x-show="formError" x-cloak class="rounded-lg border border-error-500/40 bg-error-500/10 px-4 py-2 text-sm text-error-700 dark:text-error-400" x-text="formError"></div>
+
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div class="sm:col-span-2">
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Nome (em CAIXA ALTA) *</label>
+                        <input type="text" x-model="form.name" @input="form.name = $event.target.value.toUpperCase()" required class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm uppercase text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                      </div>
+                      <div>
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">CPF *</label>
+                        <input type="text" maxlength="14" :value="form.cpf" @input="onCpfInput($event)" required class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" placeholder="999.999.999-99" />
+                      </div>
+                      <div>
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Data de nascimento *</label>
+                        <input type="date" x-model="form.birthDate" required class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                      </div>
+                      <div>
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">CNH (em CAIXA ALTA) *</label>
+                        <input type="text" x-model="form.licenseNumber" @input="form.licenseNumber = $event.target.value.toUpperCase()" required class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm uppercase text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                      </div>
+                      <div>
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Emissão CNH *</label>
+                        <input type="date" x-model="form.licenseIssueDate" required class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                      </div>
+                      <div>
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Vencimento CNH *</label>
+                        <input type="date" x-model="form.licenseExpiryDate" required class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                      </div>
+                      <div class="sm:col-span-2">
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Vínculo com usuário (opcional)</label>
+                        <select x-model="form.userId" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                          <option value="">— sem vínculo —</option>
+                          <template x-for="u in users" :key="u.id">
+                            <option :value="u.id" x-text="u.name + ' (' + u.email + ')'"></option>
+                          </template>
+                        </select>
+                      </div>
+                      <div class="sm:col-span-2 flex items-center gap-2">
+                        <input id="driver-active" type="checkbox" x-model="form.active" class="h-4 w-4" />
+                        <label for="driver-active" class="text-sm text-gray-700 dark:text-gray-300">Ativo</label>
+                      </div>
+                    </div>
+
+                    <div class="flex justify-end gap-2 pt-2">
+                      <button type="button" @click="closeForm()" class="h-11 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]">Cancelar</button>
+                      <button type="submit" :disabled="saving" class="h-11 rounded-lg bg-brand-500 px-5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-70">
+                        <span x-show="!saving">Guardar</span>
+                        <span x-show="saving" x-cloak>A guardar…</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                <!-- Aba Vínculos -->
+                <div x-show="formTab === 'assignments'" x-cloak>
+                  <div x-show="assignError" x-cloak class="mb-3 rounded-lg border border-error-500/40 bg-error-500/10 px-4 py-2 text-sm text-error-700 dark:text-error-400" x-text="assignError"></div>
+
+                  <!-- Form novo vínculo -->
+                  <div class="mb-4 rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+                    <p class="mb-3 text-sm font-medium text-gray-800 dark:text-white/90">Novo vínculo</p>
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div>
+                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Veículo</label>
+                        <select x-model="newAssign.vehicleId" :disabled="hasOpenAssignment() || !canAssign" class="dark:bg-dark-900 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 disabled:opacity-60">
+                          <option value="">— selecionar —</option>
+                          <template x-for="v in vehicles" :key="v.id">
+                            <option :value="v.id" x-text="v.plate + ' — ' + v.brand + ' ' + v.model"></option>
+                          </template>
+                        </select>
+                      </div>
+                      <div>
+                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Data inicial</label>
+                        <input type="date" x-model="newAssign.startDate" :disabled="hasOpenAssignment() || !canAssign" class="dark:bg-dark-900 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 disabled:opacity-60" />
+                      </div>
+                      <div>
+                        <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Observações (opcional)</label>
+                        <input type="text" x-model="newAssign.notes" :disabled="hasOpenAssignment() || !canAssign" class="dark:bg-dark-900 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 disabled:opacity-60" />
+                      </div>
+                    </div>
+                    <div class="mt-3 flex items-center justify-between">
+                      <p class="text-xs text-gray-500" x-show="hasOpenAssignment()">Existe um vínculo aberto. Finalize-o antes de criar outro.</p>
+                      <button type="button" @click="addAssignment()" :disabled="hasOpenAssignment() || !canAssign" class="h-10 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50">+ Vincular</button>
+                    </div>
+                  </div>
+
+                  <!-- Lista de vínculos -->
+                  <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
+                    <table class="min-w-full text-left text-sm">
+                      <thead class="border-b border-gray-200 text-xs uppercase text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                        <tr>
+                          <th class="px-3 py-2">Placa</th>
+                          <th class="px-3 py-2">Início</th>
+                          <th class="px-3 py-2">Fim</th>
+                          <th class="px-3 py-2">Status</th>
+                          <th class="px-3 py-2 text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        <template x-if="assignments.length === 0">
+                          <tr><td colspan="5" class="px-3 py-4 text-center text-gray-500">Sem vínculos.</td></tr>
+                        </template>
+                        <template x-for="a in assignments" :key="a.id">
+                          <tr>
+                            <td class="px-3 py-2 font-medium" x-text="a.vehicle?.plate || '—'"></td>
+                            <td class="px-3 py-2" x-text="formatDate(a.startDate)"></td>
+                            <td class="px-3 py-2" x-text="a.endDate ? formatDate(a.endDate) : '—'"></td>
+                            <td class="px-3 py-2">
+                              <span :class="a.endDate ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' : 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400'" class="inline-flex rounded-full px-2 py-0.5 text-xs">
+                                <span x-text="a.endDate ? 'Finalizado' : 'Aberto'"></span>
+                              </span>
+                            </td>
+                            <td class="px-3 py-2 text-right">
+                              <template x-if="!a.endDate && finishingId !== a.id">
+                                <button type="button" x-show="canAssign" @click="startFinish(a)" class="rounded-md border border-gray-200 px-2 py-1 text-xs hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-white/[0.05]">Finalizar</button>
+                              </template>
+                              <template x-if="finishingId === a.id">
+                                <span class="inline-flex items-center gap-2">
+                                  <input type="date" x-model="finishDate" class="dark:bg-dark-900 h-8 rounded-lg border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                  <button type="button" @click="confirmFinish()" class="rounded-md bg-brand-500 px-2 py-1 text-xs text-white hover:bg-brand-600">OK</button>
+                                  <button type="button" @click="cancelFinish()" class="rounded-md border border-gray-200 px-2 py-1 text-xs">×</button>
+                                </span>
+                              </template>
+                              <button type="button" x-show="canAssign && finishingId !== a.id" @click="deleteAssignment(a)" class="ml-2 rounded-md border border-error-500/40 px-2 py-1 text-xs text-error-600 hover:bg-error-500/10">Excluir</button>
+                            </td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div class="mt-4 flex justify-end">
+                    <button type="button" @click="closeForm()" class="h-11 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]">Fechar</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Modal: confirmação de exclusão de motorista -->
+            <div x-show="confirmId" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-900/50 p-4">
+              <div class="w-full max-w-md rounded-2xl bg-white p-6 dark:bg-gray-900">
+                <h3 class="mb-2 text-lg font-semibold text-gray-800 dark:text-white/90">Confirmar exclusão</h3>
+                <p class="mb-4 text-sm text-gray-600 dark:text-gray-400">
+                  Excluir motorista <strong x-text="confirmName"></strong>?
+                </p>
+                <div class="flex justify-end gap-2">
+                  <button type="button" @click="cancelDelete()" class="h-10 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]">Cancelar</button>
+                  <button type="button" @click="confirmDelete()" class="h-10 rounded-lg bg-error-500 px-5 text-sm font-medium text-white hover:bg-error-600">Excluir</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "@grupo-franciosi/shared",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Constantes e tipos partilhados entre apps do monorepo Grupo Franciosi.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "prepare": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "~5.7.3"
+  }
+}

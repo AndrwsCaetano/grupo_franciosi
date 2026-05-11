@@ -1,0 +1,19 @@
+# Postgres do monorepo grupo_franciosi (5432 dentro do container).
+# - 5434: porta principal no host (variável GRUPO_FRANCIOSI_PG_PORT)
+# - 5433: segunda porta no mesmo servidor (opcional; remova se estiver ocupada)
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: grupo_franciosi
+    ports:
+      - "${GRUPO_FRANCIOSI_PG_PORT:-5434}:5432"
+      - "5433:5432"
+    volumes:
+      - grupo_franciosi_pg:/var/lib/postgresql/data
+
+volumes:
+  grupo_franciosi_pg:

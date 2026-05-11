@@ -1,0 +1,27 @@
+# Caddy com TLS automático. Use junto com docker-compose.prod.yml.
+#
+# 1. Em .env.production defina CADDY_ADMIN_DOMAIN (e opcionalmente CADDY_PWA_DOMAIN).
+# 2. Rode: scripts/prepare-caddyfile.sh
+# 3. Rode: USE_CADDY=1 scripts/deploy-prod.sh
+#
+# DNS do(s) domínio(s) deve apontar para esta VPS antes do primeiro up (ACME).
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile.local:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - pwa
+
+volumes:
+  caddy_data:
+  caddy_config:

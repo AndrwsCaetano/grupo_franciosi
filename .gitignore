@@ -1,0 +1,11 @@
+.turbo/
+node_modules/
+dist/
+packages/*/dist/
+apps/pwa/dist/
+.env
+.env.production
+*.log
+.DS_Store
+apps/api/generated/
+deploy/Caddyfile.local

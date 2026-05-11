@@ -1,0 +1,10 @@
+# Gerado automaticamente por scripts/prepare-caddyfile.sh → deploy/Caddyfile.local
+#
+# Exemplo (admin + PWA em subdomínios):
+#
+# admin.exemplo.com {
+#     reverse_proxy web:80
+# }
+# pwa.exemplo.com {
+#     reverse_proxy pwa:80
+# }

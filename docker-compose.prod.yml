@@ -1,0 +1,79 @@
+# Stack de produção do monorepo Grupo Franciosi.
+#
+# Deploy:
+#   scripts/prepare-env-production.sh
+#   scripts/deploy-prod.sh
+# HTTPS (Caddy na frente): scripts/prepare-caddyfile.sh && USE_CADDY=1 scripts/deploy-prod.sh
+#
+# Serviços:
+#   postgres — banco interno da aplicação.
+#   api      — NestJS + Prisma + Oracle Instant Client embutido (Thick mode).
+#   web      — nginx: painel web-admin + proxy da API.
+#   pwa      — nginx: PWA motorista + proxy /driver-auth, /driver, /uploads.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-grupo_franciosi}
+    volumes:
+      - grupo_franciosi_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-grupo_franciosi}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/grupo_franciosi?schema=public}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env.production}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_DAYS: ${JWT_REFRESH_EXPIRES_DAYS:-60}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      # Oracle: caminho do Instant Client embutido na imagem (não mexer salvo se trocar).
+      ORACLE_CLIENT_LIB_DIR: /opt/oracle/instantclient
+      # Após o primeiro deploy, defina RUN_SEED=0 no .env.production para pular o seed.
+      RUN_SEED: ${RUN_SEED:-1}
+    volumes:
+      - grupo_franciosi_uploads:/app/apps/api/uploads
+    expose:
+      - "4000"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web-admin/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-80}:80"
+
+  pwa:
+    build:
+      context: .
+      dockerfile: apps/pwa/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_PWA_API_URL:-}
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${PWA_PORT:-8080}:80"
+
+volumes:
+  grupo_franciosi_pg:
+  grupo_franciosi_uploads:

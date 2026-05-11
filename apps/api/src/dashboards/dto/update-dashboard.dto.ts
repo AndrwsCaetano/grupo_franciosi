@@ -1,0 +1,39 @@
+import {
+  IsBoolean,
+  IsObject,
+  IsOptional,
+  IsString,
+  Matches,
+  MinLength,
+} from 'class-validator';
+
+export class UpdateDashboardDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+    message: 'slug deve usar letras minúsculas, números e hífens',
+  })
+  slug?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsObject()
+  definition?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  dataSourceId?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
+}
