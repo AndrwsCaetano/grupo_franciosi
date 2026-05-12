@@ -1,15 +1,14 @@
 # Stack de produção do monorepo Grupo Franciosi.
+# Integrado com Traefik externo (rede `traefik` compartilhada).
 #
 # Deploy:
-#   scripts/prepare-env-production.sh
-#   scripts/deploy-prod.sh
-# HTTPS (Caddy na frente): scripts/prepare-caddyfile.sh && USE_CADDY=1 scripts/deploy-prod.sh
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 #
 # Serviços:
-#   postgres — banco interno da aplicação.
+#   postgres — banco interno da aplicação (não exposto fora da rede interna).
 #   api      — NestJS + Prisma + Oracle Instant Client embutido (Thick mode).
-#   web      — nginx: painel web-admin + proxy da API.
-#   pwa      — nginx: PWA motorista + proxy /driver-auth, /driver, /uploads.
+#   web      — nginx: painel web-admin + proxy da API. Roteado pelo Traefik.
+#   pwa      — nginx: PWA motorista + proxy /driver-auth, /driver, /uploads. Roteado pelo Traefik.
 
 services:
   postgres:
@@ -21,6 +20,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-grupo_franciosi}
     volumes:
       - grupo_franciosi_pg:/var/lib/postgresql/data
+    networks:
+      - internal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-grupo_franciosi}"]
       interval: 10s
@@ -42,13 +43,13 @@ services:
       JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env.production}
       JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
       JWT_REFRESH_EXPIRES_DAYS: ${JWT_REFRESH_EXPIRES_DAYS:-60}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
-      # Oracle: caminho do Instant Client embutido na imagem (não mexer salvo se trocar).
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://grupofranciosi.agrigestao.tech,https://pwa.grupofranciosi.agrigestao.tech}
       ORACLE_CLIENT_LIB_DIR: /opt/oracle/instantclient
-      # Após o primeiro deploy, defina RUN_SEED=0 no .env.production para pular o seed.
       RUN_SEED: ${RUN_SEED:-1}
     volumes:
       - grupo_franciosi_uploads:/app/apps/api/uploads
+    networks:
+      - internal
     expose:
       - "4000"
 
@@ -59,8 +60,17 @@ services:
     restart: unless-stopped
     depends_on:
       - api
-    ports:
-      - "${WEB_PORT:-80}:80"
+    networks:
+      - internal
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.franciosi-web.rule=Host(`grupofranciosi.agrigestao.tech`)"
+      - "traefik.http.routers.franciosi-web.entrypoints=websecure"
+      - "traefik.http.routers.franciosi-web.tls=true"
+      - "traefik.http.routers.franciosi-web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.franciosi-web.loadbalancer.server.port=80"
 
   pwa:
     build:
@@ -71,9 +81,25 @@ services:
     restart: unless-stopped
     depends_on:
       - api
-    ports:
-      - "${PWA_PORT:-8080}:80"
+    networks:
+      - internal
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.franciosi-pwa.rule=Host(`pwa.grupofranciosi.agrigestao.tech`)"
+      - "traefik.http.routers.franciosi-pwa.entrypoints=websecure"
+      - "traefik.http.routers.franciosi-pwa.tls=true"
+      - "traefik.http.routers.franciosi-pwa.tls.certresolver=letsencrypt"
+      - "traefik.http.services.franciosi-pwa.loadbalancer.server.port=80"
 
 volumes:
   grupo_franciosi_pg:
   grupo_franciosi_uploads:
+
+networks:
+  internal:
+    driver: bridge
+  traefik:
+    external: true
+    name: traefik
