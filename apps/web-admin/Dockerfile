@@ -9,26 +9,28 @@ FROM node:22-bookworm-slim AS builder
 
 WORKDIR /repo
 
+# Webpack e loaders estão em devDependencies — instalar com dev.
+ENV NODE_ENV=development
+
 COPY package.json package-lock.json turbo.json ./
+COPY apps/api/package.json apps/api/
 COPY apps/web-admin/package.json apps/web-admin/
+COPY apps/pwa/package.json apps/pwa/
+COPY packages/shared/package.json packages/shared/
 
-RUN npm ci -w web-admin --include-workspace-root --ignore-scripts
+RUN npm ci -w web-admin --include-workspace-root
 
-# Source do painel.
 COPY apps/web-admin ./apps/web-admin
 
 WORKDIR /repo/apps/web-admin
-RUN npx webpack --config webpack.config.js --mode production
+RUN npm exec webpack -- --config webpack.config.js --mode production
 
 ############
 # 2. runner (nginx)
 ############
 FROM nginx:1.27-alpine AS runner
 
-# Config do nginx: serve estáticos do painel e proxia /auth, /users etc para o serviço `api`.
 COPY apps/web-admin/nginx.conf /etc/nginx/conf.d/default.conf
-
-# Copia o build do webpack.
 COPY --from=builder /repo/apps/web-admin/build /usr/share/nginx/html
 
 EXPOSE 80
