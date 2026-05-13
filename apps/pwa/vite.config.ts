@@ -27,6 +27,7 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.svg', 'pwa-192.png', 'pwa-512.png'],
         manifest: {
+          id: '/',
           name: 'Agrigestão Motorista',
           short_name: 'Motorista',
           description: 'Lançamento de abastecimentos',
@@ -34,6 +35,7 @@ export default defineConfig(({ mode }) => {
           background_color: '#eff6ff',
           display: 'standalone',
           start_url: '/',
+          scope: '/',
           lang: 'pt-BR',
           icons: [
             {
@@ -46,7 +48,13 @@ export default defineConfig(({ mode }) => {
               src: '/pwa-512.png',
               sizes: '512x512',
               type: 'image/png',
-              purpose: 'any maskable',
+              purpose: 'any',
+            },
+            {
+              src: '/pwa-512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable',
             },
           ],
         },

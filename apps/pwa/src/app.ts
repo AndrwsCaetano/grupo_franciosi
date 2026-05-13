@@ -7,6 +7,12 @@ import {
   setTokens,
 } from './api';
 import { addPending, allPending } from './db';
+import {
+  hasDeferredInstallPrompt,
+  isLikelyIosSafari,
+  isStandaloneDisplay,
+  promptPwaInstall,
+} from './pwa-install';
 import { registerFuelingsBackgroundSync, syncPendingFuelings } from './sync';
 
 type MeResponse = {
@@ -205,6 +211,11 @@ export function registerAlpineComponents(Alpine: AlpineType): void {
     receiptFile: null as File | null,
     syncing: false,
     online: typeof navigator !== 'undefined' ? navigator.onLine : true,
+    /** Chromium: há evento guardado para `prompt()`. */
+    pwaShowInstallButton: false,
+    /** Safari iOS: não há `beforeinstallprompt`; mostrar instruções. */
+    pwaIosInstallHint: false,
+    pwaInstalledUi: false,
     fmtDate,
     fmtDateTime,
     fmtLiters,
@@ -319,6 +330,7 @@ export function registerAlpineComponents(Alpine: AlpineType): void {
     setTab(t: 'abastecimento' | 'relatorios' | 'config') {
       this.tab = t;
       this.drawerOpen = false;
+      if (t === 'config') this.syncPwaInstallUi();
       if (t !== 'abastecimento') this.fuelingFlow = 'list';
       if (t === 'relatorios' && this.view === 'app') {
         void this.loadFuelings();
@@ -337,7 +349,34 @@ export function registerAlpineComponents(Alpine: AlpineType): void {
       }
     },
 
+    syncPwaInstallUi() {
+      if (isStandaloneDisplay()) {
+        this.pwaInstalledUi = true;
+        this.pwaShowInstallButton = false;
+        this.pwaIosInstallHint = false;
+        return;
+      }
+      this.pwaInstalledUi = false;
+      this.pwaShowInstallButton = hasDeferredInstallPrompt();
+      this.pwaIosInstallHint =
+        !this.pwaShowInstallButton && isLikelyIosSafari();
+    },
+
+    async installPwaApp() {
+      const ok = await promptPwaInstall();
+      this.syncPwaInstallUi();
+      if (ok) {
+        this.error = '';
+      }
+    },
+
     async init() {
+      this.syncPwaInstallUi();
+      const onInstallReady = () => this.syncPwaInstallUi();
+      const onInstalled = () => this.syncPwaInstallUi();
+      window.addEventListener('gf-pwa-install-ready', onInstallReady);
+      window.addEventListener('gf-pwa-installed', onInstalled);
+
       window.addEventListener('online', () => {
         this.online = true;
       });
@@ -553,6 +592,7 @@ export function registerAlpineComponents(Alpine: AlpineType): void {
       this.drawerOpen = false;
       this.applyRememberedLogin();
       this.view = 'login';
+      this.syncPwaInstallUi();
     },
   }));
 }

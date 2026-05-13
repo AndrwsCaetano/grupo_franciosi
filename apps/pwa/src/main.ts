@@ -1,8 +1,11 @@
 import Alpine from 'alpinejs';
 import { registerSW } from 'virtual:pwa-register';
 import { registerAlpineComponents } from './app';
+import { initPwaInstallListeners } from './pwa-install';
 import { syncPendingFuelings } from './sync';
 import './style.css';
+
+initPwaInstallListeners();
 
 registerAlpineComponents(Alpine);
 

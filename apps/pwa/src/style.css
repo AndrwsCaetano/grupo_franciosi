@@ -153,6 +153,29 @@ a {
   color: var(--app-slate-500);
 }
 
+.login-pwa {
+  margin-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.65rem;
+  max-width: 22rem;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.login-pwa-btn {
+  width: 100%;
+}
+
+.login-pwa-ios {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
 .field label,
 .field-label {
   display: block;

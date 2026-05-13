@@ -7,8 +7,13 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="theme-color" content="#1d4ed8" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Motorista" />
     <title>Motorista | Abastecimento</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/pwa-192.png" />
     <style>
       [x-cloak] {
         display: none !important;
@@ -102,6 +107,25 @@
             Entrar
           </button>
         </form>
+
+        <div
+          class="login-pwa"
+          x-show="!pwaInstalledUi && (pwaShowInstallButton || pwaIosInstallHint)"
+          x-cloak
+        >
+          <button
+            type="button"
+            class="btn-secondary btn-primary-lg login-pwa-btn"
+            x-show="pwaShowInstallButton"
+            @click="installPwaApp()"
+          >
+            Instalar aplicativo
+          </button>
+          <p class="muted login-pwa-ios" x-show="pwaIosInstallHint && !pwaShowInstallButton">
+            No iPhone/iPad (Safari): toque em <strong>Partilhar</strong> e depois
+            <strong>Adicionar ao ecrã principal</strong>.
+          </p>
+        </div>
 
         <p class="login-footer">Motorista · v1.0.0</p>
       </div>
@@ -376,6 +400,29 @@
 
           <div x-show="tab === 'config'" class="app-panel app-panel--config">
             <h2 class="app-page-title">Configurações</h2>
+
+            <div
+              class="config-card"
+              x-show="!pwaInstalledUi && (pwaShowInstallButton || pwaIosInstallHint)"
+              x-cloak
+            >
+              <p class="config-card-label">Instalar no telemóvel</p>
+              <p class="muted">
+                Instale o Motorista para abrir mais rápido e usar offline com cache.
+              </p>
+              <button
+                type="button"
+                class="btn-primary btn-primary-lg mt-sm"
+                x-show="pwaShowInstallButton"
+                @click="installPwaApp()"
+              >
+                Instalar aplicativo
+              </button>
+              <p class="muted mt-sm" x-show="pwaIosInstallHint && !pwaShowInstallButton">
+                No iPhone/iPad (Safari): toque em <strong>Partilhar</strong> (□↑) e depois
+                <strong>Adicionar ao ecrã principal</strong>.
+              </p>
+            </div>
 
             <div class="config-card">
               <div class="config-card-row">
