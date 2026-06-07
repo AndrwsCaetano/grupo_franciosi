@@ -10,6 +10,9 @@ export const DEFAULT_PERMISSIONS = [
   { code: "dashboards.read", name: "Listar dashboards" },
   { code: "dashboards.write", name: "Criar/editar dashboards" },
   { code: "dashboards.assign", name: "Liberar dashboards a usuários" },
+  { code: "superset.read", name: "Visualizar dashboards do Superset" },
+  { code: "superset.write", name: "Cadastrar/editar dashboards do Superset" },
+  { code: "superset.assign", name: "Liberar dashboards do Superset a usuários" },
   { code: "vehicles.read", name: "Listar veículos" },
   { code: "vehicles.write", name: "Criar/editar/excluir veículos" },
   { code: "drivers.read", name: "Listar motoristas" },
@@ -17,6 +20,13 @@ export const DEFAULT_PERMISSIONS = [
   { code: "drivers.assign_vehicle", name: "Vincular motorista a veículo" },
   { code: "fuelings.read", name: "Listar abastecimentos de veículo" },
   { code: "fuelings.write", name: "Lançar/editar/excluir abastecimentos" },
+  { code: "reports.read", name: "Acessar módulo de Relatórios" },
+  { code: "reports.export", name: "Exportar relatórios em HTML" },
+  // Permissão por relatório (uma por relatório do registro). Ao adicionar um
+  // novo relatório em apps/api/src/reports/reports.registry.ts, acrescente aqui
+  // a linha "reports.<slug>" correspondente para que ele apareça nas
+  // liberações de acesso e na montagem de perfil.
+  { code: "reports.producao-milho", name: "Relatório: Produção de Milho em Grãos" },
 ] as const;
 
 export type PermissionCode = (typeof DEFAULT_PERMISSIONS)[number]["code"];

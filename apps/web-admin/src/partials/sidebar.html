@@ -245,6 +245,98 @@
           </li>
           <!-- Menu Item Dashboard -->
 
+          <!-- Menu Item BI (Superset) -->
+          <li x-show="gf.can('superset.read')" x-cloak>
+            <a
+              href="#"
+              @click.prevent="selected = (selected === 'BI' ? '':'BI')"
+              class="menu-item group"
+              :class="(selected === 'BI') || (page === 'superset') ? 'menu-item-active' : 'menu-item-inactive'"
+            >
+              <svg
+                :class="(selected === 'BI') || (page === 'superset') ? 'menu-item-icon-active' : 'menu-item-icon-inactive'"
+                width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  fill-rule="evenodd"
+                  clip-rule="evenodd"
+                  d="M3.25 5.5C3.25 4.25736 4.25736 3.25 5.5 3.25H18.5C19.7426 3.25 20.75 4.25736 20.75 5.5V18.5C20.75 19.7426 19.7426 20.75 18.5 20.75H5.5C4.25736 20.75 3.25 19.7426 3.25 18.5V5.5ZM5.5 4.75C5.08579 4.75 4.75 5.08579 4.75 5.5V18.5C4.75 18.9142 5.08579 19.25 5.5 19.25H18.5C18.9142 19.25 19.25 18.9142 19.25 18.5V5.5C19.25 5.08579 18.9142 4.75 18.5 4.75H5.5ZM8 16.75C7.58579 16.75 7.25 16.4142 7.25 16V11C7.25 10.5858 7.58579 10.25 8 10.25C8.41421 10.25 8.75 10.5858 8.75 11V16C8.75 16.4142 8.41421 16.75 8 16.75ZM11.25 16C11.25 16.4142 11.5858 16.75 12 16.75C12.4142 16.75 12.75 16.4142 12.75 16V8C12.75 7.58579 12.4142 7.25 12 7.25C11.5858 7.25 11.25 7.58579 11.25 8V16ZM16 16.75C15.5858 16.75 15.25 16.4142 15.25 16V13C15.25 12.5858 15.5858 12.25 16 12.25C16.4142 12.25 16.75 12.5858 16.75 13V16C16.75 16.4142 16.4142 16.75 16 16.75Z"
+                  fill=""
+                />
+              </svg>
+              <span class="menu-item-text" :class="sidebarToggle ? 'lg:hidden' : ''">
+                BI / Superset
+              </span>
+              <svg
+                class="menu-item-arrow"
+                :class="[(selected === 'BI') ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585" stroke="" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </a>
+            <div class="overflow-hidden transform translate" :class="(selected === 'BI') ? 'block' :'hidden'">
+              <ul :class="sidebarToggle ? 'lg:hidden' : 'flex'" class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+                <li>
+                  <a href="superset.html" class="menu-dropdown-item group" :class="page === 'superset' ? 'menu-dropdown-item-active' : 'menu-dropdown-item-inactive'">
+                    Dashboards
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </li>
+          <!-- Fim BI (Superset) -->
+
+          <!-- Menu Item Relatórios -->
+          <li x-show="gf.can('reports.read')" x-cloak>
+            <a
+              href="#"
+              @click.prevent="selected = (selected === 'Relatorios' ? '':'Relatorios')"
+              class="menu-item group"
+              :class="(selected === 'Relatorios') || (page === 'relatorios') ? 'menu-item-active' : 'menu-item-inactive'"
+            >
+              <svg
+                :class="(selected === 'Relatorios') || (page === 'relatorios') ? 'menu-item-icon-active' : 'menu-item-icon-inactive'"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  fill-rule="evenodd"
+                  clip-rule="evenodd"
+                  d="M6.75 2.5C5.50736 2.5 4.5 3.50736 4.5 4.75V19.25C4.5 20.4926 5.50736 21.5 6.75 21.5H17.25C18.4926 21.5 19.5 20.4926 19.5 19.25V8.31066C19.5 7.71392 19.2629 7.14162 18.841 6.71967L15.2803 3.15901C14.8584 2.73705 14.2861 2.5 13.6893 2.5H6.75ZM6 4.75C6 4.33579 6.33579 4 6.75 4H13V7.25C13 8.07843 13.6716 8.75 14.5 8.75H18V19.25C18 19.6642 17.6642 20 17.25 20H6.75C6.33579 20 6 19.6642 6 19.25V4.75ZM17.6893 7.25L14.5 4.06066V7.25H17.6893ZM8.25 11.5C7.83579 11.5 7.5 11.8358 7.5 12.25C7.5 12.6642 7.83579 13 8.25 13H15.75C16.1642 13 16.5 12.6642 16.5 12.25C16.5 11.8358 16.1642 11.5 15.75 11.5H8.25ZM8.25 15C7.83579 15 7.5 15.3358 7.5 15.75C7.5 16.1642 7.83579 16.5 8.25 16.5H13.25C13.6642 16.5 14 16.1642 14 15.75C14 15.3358 13.6642 15 13.25 15H8.25Z"
+                  fill=""
+                />
+              </svg>
+              <span class="menu-item-text" :class="sidebarToggle ? 'lg:hidden' : ''">
+                Relatórios
+              </span>
+              <svg
+                class="menu-item-arrow"
+                :class="[(selected === 'Relatorios') ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585" stroke="" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </a>
+            <div class="overflow-hidden transform translate" :class="(selected === 'Relatorios') ? 'block' :'hidden'">
+              <ul :class="sidebarToggle ? 'lg:hidden' : 'flex'" class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+                <li x-show="gf.can('reports.producao-milho')">
+                  <a href="relatorios.html" class="menu-dropdown-item group" :class="page === 'relatorios' ? 'menu-dropdown-item-active' : 'menu-dropdown-item-inactive'">
+                    Produção de Milho em Grãos
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </li>
+          <!-- Fim Relatórios -->
+
           <!-- Menu Administração -->
           <li x-show="gf.canAny('users.read','profiles.read','datasources.read')" x-cloak>
             <a

@@ -1,9 +1,10 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { DataSourceType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ConnectionTesterService,
@@ -136,6 +137,47 @@ export class DataSourcesService {
       ssl: row.ssl,
       extra: (row.extra as Record<string, unknown> | null) ?? null,
     });
+  }
+
+  /**
+   * Executa um SELECT em uma fonte de dados Oracle cadastrada e devolve as
+   * linhas como objetos. Usado pelo módulo de Relatórios.
+   */
+  async runQueryById(
+    id: string,
+    sql: string,
+  ): Promise<Record<string, unknown>[]> {
+    const row = await this.prisma.dataSource.findUnique({ where: { id } });
+    if (!row) {
+      throw new NotFoundException('Fonte de dados não encontrada');
+    }
+    if (!row.active) {
+      throw new BadRequestException('Fonte de dados inativa');
+    }
+    if (row.type !== DataSourceType.ORACLE) {
+      throw new BadRequestException(
+        `Execução de relatórios suportada apenas para Oracle (recebido: ${row.type}).`,
+      );
+    }
+    try {
+      return await this.tester.runOracleSelect(
+        {
+          type: row.type,
+          host: row.host,
+          port: row.port,
+          databaseName: row.databaseName,
+          username: row.username,
+          password: row.passwordEnc,
+          ssl: row.ssl,
+          extra: (row.extra as Record<string, unknown> | null) ?? null,
+        },
+        sql,
+      );
+    } catch (err) {
+      throw new BadRequestException(
+        `Falha ao consultar a fonte de dados "${row.name}": ${(err as Error).message}`,
+      );
+    }
   }
 
   private async ensure(id: string) {

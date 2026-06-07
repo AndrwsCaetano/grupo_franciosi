@@ -1,0 +1,89 @@
+# Stack de DESENVOLVIMENTO local do Apache Superset (módulo de BI).
+#
+# Sobe Superset + Redis + banco de metadados próprio, expostos em localhost,
+# já configurados para embutir dashboards no painel rodando em
+# http://localhost:3000 (npm run dev:admin).
+#
+# Uso:
+#   docker compose -f docker-compose.dev.yml up -d
+#   # primeira vez: aguarde o superset-init terminar (docker compose logs -f superset-init)
+#   # acesse http://localhost:8088  (login: admin / admin)
+#
+# Para derrubar:
+#   docker compose -f docker-compose.dev.yml down
+#
+# Secrets aqui são fracos de propósito (apenas dev local). NÃO use em produção.
+services:
+  superset-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  superset-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: superset
+      POSTGRES_DB: superset
+    volumes:
+      - grupo_franciosi_superset_db_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superset"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  superset-init:
+    build: &superset-build
+      context: ./apps/superset
+      dockerfile: Dockerfile
+      args:
+        SUPERSET_VERSION: ${SUPERSET_VERSION:-4.1.1}
+    image: grupo-franciosi/superset:local
+    user: root
+    restart: "no"
+    depends_on:
+      superset-db:
+        condition: service_healthy
+      superset-redis:
+        condition: service_started
+    environment: &superset-dev-env
+      SUPERSET_SECRET_KEY: dev-secret-key-change-me-please-0123456789
+      SUPERSET_GUEST_TOKEN_SECRET: dev-guest-token-secret-change-me-0123456789
+      DATABASE_HOST: superset-db
+      DATABASE_PORT: "5432"
+      DATABASE_DB: superset
+      DATABASE_USER: superset
+      DATABASE_PASSWORD: superset
+      REDIS_HOST: superset-redis
+      REDIS_PORT: "6379"
+      # Origem do painel local autorizada a embutir (CORS + frame-ancestors).
+      PANEL_ORIGIN: "http://localhost:3000,http://127.0.0.1:3000"
+      # Em http local, os cookies não podem ser Secure.
+      SUPERSET_COOKIE_SECURE: "false"
+      SUPERSET_COOKIE_SAMESITE: "None"
+      SUPERSET_ADMIN_USERNAME: admin
+      SUPERSET_ADMIN_PASSWORD: admin
+      SUPERSET_ADMIN_EMAIL: admin@local.dev
+    volumes:
+      - ./apps/superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+      - ./apps/superset/docker-init.sh:/app/docker-init.sh:ro
+    entrypoint: ["/bin/bash", "-c", "tr -d '\\r' < /app/docker-init.sh | bash"]
+
+  superset:
+    build: *superset-build
+    image: grupo-franciosi/superset:local
+    restart: unless-stopped
+    depends_on:
+      superset-init:
+        condition: service_completed_successfully
+    environment: *superset-dev-env
+    volumes:
+      - ./apps/superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+    ports:
+      - "8088:8088"
+
+volumes:
+  grupo_franciosi_superset_db_dev:

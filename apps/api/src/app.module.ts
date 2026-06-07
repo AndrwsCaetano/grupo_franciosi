@@ -12,6 +12,8 @@ import { FuelingsModule } from './fuelings/fuelings.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProfilesModule } from './profiles/profiles.module';
+import { ReportsModule } from './reports/reports.module';
+import { SupersetModule } from './superset/superset.module';
 import { UsersModule } from './users/users.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { DriverModule } from './driver/driver.module';
@@ -27,9 +29,11 @@ import { DriverModule } from './driver/driver.module';
     ProfilesModule,
     DataSourcesModule,
     DashboardsModule,
+    SupersetModule,
     VehiclesModule,
     DriversModule,
     FuelingsModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [

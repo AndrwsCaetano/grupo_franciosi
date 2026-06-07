@@ -28,6 +28,7 @@ model User {
   profiles            UserProfile[]
   permissionOverrides UserPermission[]
   dashboards          UserDashboard[]
+  supersetDashboards  UserSupersetDashboard[]
   refreshTokens       RefreshToken[]
   drivers             Driver[]
   fuelingsCreated     VehicleFueling[] @relation("FuelingCreatedBy")
@@ -136,6 +137,33 @@ model UserDashboard {
   dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
 
   @@id([userId, dashboardId])
+}
+
+/// Dashboard publicado no Apache Superset e embutido no painel via guest token.
+/// `embeddedUuid` é o UUID gerado ao habilitar "Embed dashboard" na UI do Superset.
+model SupersetDashboard {
+  id           String   @id @default(cuid())
+  title        String
+  slug         String   @unique
+  description  String?
+  embeddedUuid String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignments UserSupersetDashboard[]
+}
+
+/// Quais dashboards do Superset cada usuário pode abrir (liberação explícita)
+model UserSupersetDashboard {
+  userId              String
+  supersetDashboardId String
+  assignedAt          DateTime @default(now())
+
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dashboard SupersetDashboard @relation(fields: [supersetDashboardId], references: [id], onDelete: Cascade)
+
+  @@id([userId, supersetDashboardId])
 }
 
 model RefreshToken {

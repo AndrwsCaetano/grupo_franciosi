@@ -89,6 +89,28 @@ async function main() {
     update: { port: 5434, host: 'localhost' },
   });
 
+  // Conexão Oracle fixa usada pelo módulo de Relatórios (UNISYSTEM).
+  // Em produção, configure host/usuário/senha/serviço em "Conexões".
+  // update vazio para preservar o que o admin editar pelo painel.
+  await prisma.dataSource.upsert({
+    where: { id: 'oracle-unisystem' },
+    create: {
+      id: 'oracle-unisystem',
+      name: 'Oracle UNISYSTEM (Relatórios)',
+      type: 'ORACLE',
+      host: 'CONFIGURE_EM_PRODUCAO',
+      port: 1521,
+      databaseName: 'CONFIGURE_SERVICE_NAME',
+      username: 'CONFIGURE_USUARIO',
+      passwordEnc: 'CONFIGURE_EM_PRODUCAO',
+      ssl: false,
+      active: true,
+      // schema: owner das tabelas do UNISYSTEM (aplica ALTER SESSION SET CURRENT_SCHEMA).
+      extra: { schema: 'AGNEW' },
+    },
+    update: {},
+  });
+
   await prisma.dashboard.upsert({
     where: { slug: 'exemplo-resumo' },
     create: {

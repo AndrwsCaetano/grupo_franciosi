@@ -213,11 +213,11 @@ export class ConnectionTesterService implements OnModuleInit {
     }
   }
 
-  private async testOracle(
-    input: ConnectionInput,
-    t0: number,
-  ): Promise<ConnectionTestResult> {
-    const oracledb = loadDriver('oracledb') as typeof import('oracledb');
+  /**
+   * Monta o connectString do Oracle a partir do input. Aceita serviceName
+   * (padrão, via databaseName ou extra.serviceName) ou SID (via extra.sid).
+   */
+  private buildOracleConnectString(input: ConnectionInput): string {
     // Oracle aceita serviceName ou SID. databaseName é tratado como serviceName por padrão.
     // Forçar SID via extra: { sid: "XE" } ou serviceName via extra: { serviceName: "ORCLPDB1" }.
     const extra = (input.extra || {}) as { sid?: string; serviceName?: string };
@@ -227,16 +227,77 @@ export class ConnectionTesterService implements OnModuleInit {
         ? extra.serviceName
         : input.databaseName || undefined;
 
-    let connectString: string;
     if (sid) {
-      connectString = `(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=${input.host})(PORT=${input.port}))(CONNECT_DATA=(SID=${sid})))`;
-    } else if (serviceName) {
-      connectString = `${input.host}:${input.port}/${serviceName}`;
-    } else {
-      throw new Error(
-        'Para Oracle informe o nome do serviço em "Banco / Database" ou um SID em "extra.sid".',
-      );
+      return `(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=${input.host})(PORT=${input.port}))(CONNECT_DATA=(SID=${sid})))`;
     }
+    if (serviceName) {
+      return `${input.host}:${input.port}/${serviceName}`;
+    }
+    throw new Error(
+      'Para Oracle informe o nome do serviço em "Banco / Database" ou um SID em "extra.sid".',
+    );
+  }
+
+  /**
+   * Executa um SELECT em uma conexão Oracle e devolve as linhas como objetos
+   * (chave = nome da coluna). Reaproveita o init thick-mode já configurado.
+   *
+   * Se `extra.schema` (ou `extra.currentSchema`) estiver definido, aplica
+   * `ALTER SESSION SET CURRENT_SCHEMA` antes da query — útil quando as tabelas
+   * pertencem a outro owner e não há sinônimos para o usuário de leitura.
+   */
+  async runOracleSelect(
+    input: ConnectionInput,
+    sql: string,
+  ): Promise<Record<string, unknown>[]> {
+    const oracledb = loadDriver('oracledb') as typeof import('oracledb');
+    const connectString = this.buildOracleConnectString(input);
+    let conn: import('oracledb').Connection | undefined;
+    try {
+      conn = await oracledb.getConnection({
+        user: input.username,
+        password: input.password,
+        connectString,
+      });
+      const extra = (input.extra || {}) as {
+        schema?: string;
+        currentSchema?: string;
+      };
+      const schema =
+        typeof extra.schema === 'string'
+          ? extra.schema
+          : typeof extra.currentSchema === 'string'
+            ? extra.currentSchema
+            : undefined;
+      if (schema) {
+        if (!/^[A-Za-z0-9_$#]+$/.test(schema)) {
+          throw new Error(`Schema Oracle inválido: "${schema}".`);
+        }
+        await conn.execute(`ALTER SESSION SET CURRENT_SCHEMA = ${schema}`);
+      }
+      const result = await conn.execute(sql, [], {
+        outFormat: oracledb.OUT_FORMAT_OBJECT,
+      });
+      return (result.rows as Record<string, unknown>[]) || [];
+    } catch (err) {
+      const raw = (err as Error).message;
+      this.logger.warn(
+        `Falha ao executar SELECT Oracle@${input.host}:${input.port}: ${raw}`,
+      );
+      throw new Error(this.translateError('ORACLE', raw));
+    } finally {
+      if (conn) {
+        await conn.close().catch(() => undefined);
+      }
+    }
+  }
+
+  private async testOracle(
+    input: ConnectionInput,
+    t0: number,
+  ): Promise<ConnectionTestResult> {
+    const oracledb = loadDriver('oracledb') as typeof import('oracledb');
+    const connectString = this.buildOracleConnectString(input);
 
     const conn = await oracledb.getConnection({
       user: input.username,

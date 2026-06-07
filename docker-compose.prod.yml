@@ -46,6 +46,12 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-https://grupofranciosi.agrigestao.tech,https://pwa.grupofranciosi.agrigestao.tech}
       ORACLE_CLIENT_LIB_DIR: /opt/oracle/instantclient
       RUN_SEED: ${RUN_SEED:-1}
+      # Integração com o Superset (módulo de BI). A API usa a service account
+      # admin para gerar guest tokens; o frontend embute via SUPERSET_PUBLIC_URL.
+      SUPERSET_BASE_URL: ${SUPERSET_BASE_URL:-http://superset:8088}
+      SUPERSET_PUBLIC_URL: ${SUPERSET_PUBLIC_URL:-https://bi.grupofranciosi.agrigestao.tech}
+      SUPERSET_API_USER: ${SUPERSET_ADMIN_USERNAME:-admin}
+      SUPERSET_API_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:?defina SUPERSET_ADMIN_PASSWORD no .env.production}
     volumes:
       - grupo_franciosi_uploads:/app/apps/api/uploads
     networks:
@@ -93,9 +99,114 @@ services:
       - "traefik.http.routers.franciosi-pwa.tls.certresolver=letsencrypt"
       - "traefik.http.services.franciosi-pwa.loadbalancer.server.port=80"
 
+  # ---------- Módulo de BI: Apache Superset ----------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - internal
+    volumes:
+      - grupo_franciosi_superset_redis:/data
+
+  superset-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${SUPERSET_DB_USER:-superset}
+      POSTGRES_PASSWORD: ${SUPERSET_DB_PASSWORD:?defina SUPERSET_DB_PASSWORD no .env.production}
+      POSTGRES_DB: ${SUPERSET_DB_NAME:-superset}
+    volumes:
+      - grupo_franciosi_superset_db:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SUPERSET_DB_USER:-superset}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Bootstrap idempotente: migrations + admin + init. Roda e finaliza.
+  superset-init:
+    build: &superset-build
+      context: ./apps/superset
+      dockerfile: Dockerfile
+      args:
+        SUPERSET_VERSION: ${SUPERSET_VERSION:-4.1.1}
+    image: grupo-franciosi/superset:local
+    restart: "no"
+    user: root
+    depends_on:
+      superset-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment: &superset-env
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:?defina SUPERSET_SECRET_KEY no .env.production}
+      SUPERSET_GUEST_TOKEN_SECRET: ${SUPERSET_GUEST_TOKEN_SECRET:?defina SUPERSET_GUEST_TOKEN_SECRET no .env.production}
+      DATABASE_HOST: superset-db
+      DATABASE_PORT: "5432"
+      DATABASE_DB: ${SUPERSET_DB_NAME:-superset}
+      DATABASE_USER: ${SUPERSET_DB_USER:-superset}
+      DATABASE_PASSWORD: ${SUPERSET_DB_PASSWORD:?defina SUPERSET_DB_PASSWORD no .env.production}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      PANEL_ORIGIN: ${SUPERSET_PANEL_ORIGIN:-https://grupofranciosi.agrigestao.tech}
+      SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME:-admin}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:?defina SUPERSET_ADMIN_PASSWORD no .env.production}
+      SUPERSET_ADMIN_EMAIL: ${SUPERSET_ADMIN_EMAIL:-admin@local.dev}
+    volumes:
+      - ./apps/superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+      - ./apps/superset/docker-init.sh:/app/docker-init.sh:ro
+    networks:
+      - internal
+    entrypoint: ["/bin/bash", "-c", "tr -d '\\r' < /app/docker-init.sh | bash"]
+
+  superset:
+    build: *superset-build
+    image: grupo-franciosi/superset:local
+    restart: unless-stopped
+    depends_on:
+      superset-init:
+        condition: service_completed_successfully
+    environment: *superset-env
+    volumes:
+      - ./apps/superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+    networks:
+      - internal
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.franciosi-bi.rule=Host(`bi.grupofranciosi.agrigestao.tech`)"
+      - "traefik.http.routers.franciosi-bi.entrypoints=websecure"
+      - "traefik.http.routers.franciosi-bi.tls=true"
+      - "traefik.http.routers.franciosi-bi.tls.certresolver=letsencrypt"
+      - "traefik.http.services.franciosi-bi.loadbalancer.server.port=8088"
+
+  superset-worker:
+    build: *superset-build
+    image: grupo-franciosi/superset:local
+    restart: unless-stopped
+    depends_on:
+      superset-init:
+        condition: service_completed_successfully
+    environment: *superset-env
+    volumes:
+      - ./apps/superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+    networks:
+      - internal
+    command: ["celery", "--app=superset.tasks.celery_app:app", "worker", "--pool=prefork", "--concurrency=2"]
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A superset.tasks.celery_app:app inspect ping -d celery@$$HOSTNAME"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   grupo_franciosi_pg:
   grupo_franciosi_uploads:
+  grupo_franciosi_superset_db:
+  grupo_franciosi_superset_redis:
 
 networks:
   internal:

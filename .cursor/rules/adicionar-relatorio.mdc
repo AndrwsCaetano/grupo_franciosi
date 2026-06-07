@@ -1,0 +1,36 @@
+---
+description: Passo a passo para adicionar um novo relatório ao módulo de Relatórios
+globs: apps/api/src/reports/**,packages/shared/src/permissions.ts,apps/web-admin/src/partials/sidebar.html,apps/web-admin/src/relatorios.html
+alwaysApply: false
+---
+
+# Adicionar um novo relatório
+
+Cada relatório tem uma permissão própria (`reports.<slug>`) que precisa aparecer
+nas liberações de acesso e na montagem de perfil. Ao criar um relatório novo,
+siga TODOS os passos abaixo, usando o mesmo `<slug>` (kebab-case) em todos.
+
+1. **Registro** — adicionar a entrada em
+   `apps/api/src/reports/reports.registry.ts` com `permission: 'reports.<slug>'`,
+   além de `slug`, `name`, `description`, `dataSourceId` e `query` (apenas SELECT).
+2. **Permissão (fonte única)** — adicionar a linha correspondente em
+   `packages/shared/src/permissions.ts`:
+   `{ code: "reports.<slug>", name: "Relatório: ..." }`.
+3. **Menu** — acrescentar o item de submenu em
+   `apps/web-admin/src/partials/sidebar.html`, dentro do grupo "Relatórios",
+   com `x-show="gf.can('reports.<slug>')"`.
+4. **Renderização** — se o relatório gera HTML próprio, adicionar o `case '<slug>'`
+   no `render(...)` de `apps/api/src/reports/reports.service.ts` (agregador +
+   template), seguindo o padrão de `producao-milho`.
+5. **Aplicar** — `npm run build --workspace=@grupo-franciosi/shared` e
+   `npm run db:seed` (idempotente; insere a permissão e concede ao perfil
+   Administrador). Em seguida **reinicie a API** para carregar o novo código e
+   reconstrua o bundle do painel (`webpack`) se não estiver em modo watch.
+
+## Regras
+
+- O backend já filtra `GET /reports` e valida `POST /reports/:slug/run` pela
+  permissão `reports.<slug>`; admin (`isAdmin`) ignora as checagens.
+- NUNCA usar permissão genérica para liberar um relatório específico: sempre
+  criar `reports.<slug>`. `reports.read` libera apenas o acesso ao módulo/menu.
+- A query deve permanecer somente-leitura (validada por `assertSelectOnly`).

@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
+    />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Dashboards (Superset) | Agrigestão</title>
+  </head>
+  <body
+    x-data="{ page: 'superset', pageName: 'Dashboards (Superset)', 'loaded': true, 'darkMode': false, 'stickyMenu': false, 'sidebarToggle': false, 'scrollTop': false }"
+    x-init="
+         darkMode = JSON.parse(localStorage.getItem('darkMode'));
+         $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(value)))"
+    :class="{'dark bg-gray-900': darkMode === true}"
+  >
+    <include src="./partials/preloader.html"></include>
+
+    <div class="flex h-screen overflow-hidden">
+      <include src="./partials/sidebar.html"></include>
+
+      <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto">
+        <include src="./partials/overlay.html" />
+        <include src="./partials/header.html" />
+
+        <main>
+          <div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6" x-data="supersetPage()" x-init="init()">
+            <include src="./partials/breadcrumb.html" />
+
+            <!-- Abas -->
+            <div class="mb-5 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                @click="tab = 'view'"
+                class="rounded-lg px-4 py-2 text-sm font-medium"
+                :class="tab === 'view' ? 'bg-brand-500 text-white' : 'border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]'"
+              >
+                Meus dashboards
+              </button>
+              <button
+                x-show="canWrite"
+                x-cloak
+                type="button"
+                @click="tab = 'manage'"
+                class="rounded-lg px-4 py-2 text-sm font-medium"
+                :class="tab === 'manage' ? 'bg-brand-500 text-white' : 'border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]'"
+              >
+                Gerenciar
+              </button>
+            </div>
+
+            <!-- ===================== VISUALIZAÇÃO ===================== -->
+            <div x-show="tab === 'view'" x-cloak>
+              <div class="mb-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <div class="flex flex-wrap items-center gap-3">
+                  <label class="text-sm font-medium text-gray-700 dark:text-gray-400">Dashboard</label>
+                  <select
+                    x-model="selectedSlug"
+                    @change="openDashboard(selectedSlug)"
+                    class="dark:bg-dark-900 h-11 min-w-64 rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                  >
+                    <option value="" disabled>Selecione…</option>
+                    <template x-for="d in mine" :key="d.id">
+                      <option :value="d.slug" x-text="d.title"></option>
+                    </template>
+                  </select>
+                  <span x-show="embedding" class="text-sm text-gray-500">Carregando…</span>
+                </div>
+
+                <template x-if="!loadingMine && mine.length === 0">
+                  <p class="mt-4 text-sm text-gray-500">
+                    Nenhum dashboard liberado para você. Peça a um administrador para liberar em "Gerenciar".
+                  </p>
+                </template>
+
+                <div x-show="embedError" x-cloak class="mt-4 rounded-lg border border-error-500/40 bg-error-500/10 px-4 py-3 text-sm text-error-700 dark:text-error-400" x-text="embedError"></div>
+              </div>
+
+              <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                <div x-ref="embed" class="min-h-[60vh] w-full"></div>
+              </div>
+            </div>
+
+            <!-- ===================== GERENCIAR ===================== -->
+            <div x-show="tab === 'manage' && canWrite" x-cloak>
+              <div class="mb-4 flex items-center justify-between">
+                <p class="text-sm text-gray-500">
+                  Cadastre o dashboard criado no Superset informando o
+                  <strong>Embedded UUID</strong> (gerado em "Embed dashboard" na UI do Superset).
+                </p>
+                <button type="button" @click="openCreate()" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+                  Novo dashboard
+                </button>
+              </div>
+
+              <div x-show="error" x-cloak class="mb-4 rounded-lg border border-error-500/40 bg-error-500/10 px-4 py-3 text-sm text-error-700 dark:text-error-400" x-text="error"></div>
+
+              <div class="overflow-x-auto rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                <table class="min-w-full text-left text-sm">
+                  <thead class="border-b border-gray-200 text-xs uppercase text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                    <tr>
+                      <th class="px-4 py-3">Título</th>
+                      <th class="px-4 py-3">Slug</th>
+                      <th class="px-4 py-3">Embedded UUID</th>
+                      <th class="px-4 py-3 text-center">Ativo</th>
+                      <th class="px-4 py-3 text-center">Liberados</th>
+                      <th class="px-4 py-3 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                    <template x-for="item in items" :key="item.id">
+                      <tr>
+                        <td class="px-4 py-3 font-medium text-gray-800 dark:text-white/90" x-text="item.title"></td>
+                        <td class="px-4 py-3 text-gray-600 dark:text-gray-300" x-text="item.slug"></td>
+                        <td class="px-4 py-3 font-mono text-xs text-gray-500" x-text="item.embeddedUuid"></td>
+                        <td class="px-4 py-3 text-center">
+                          <span :class="item.active ? 'text-success-600' : 'text-gray-400'" x-text="item.active ? 'Sim' : 'Não'"></span>
+                        </td>
+                        <td class="px-4 py-3 text-center text-gray-600 dark:text-gray-300" x-text="item._count?.assignments ?? 0"></td>
+                        <td class="px-4 py-3 text-right">
+                          <div class="flex justify-end gap-2">
+                            <button x-show="canAssign" type="button" @click="openAssign(item)" class="rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]">Liberar</button>
+                            <button type="button" @click="openEdit(item)" class="rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]">Editar</button>
+                            <button type="button" @click="askDelete(item)" class="rounded-md border border-error-500/40 px-3 py-1.5 text-xs text-error-600 hover:bg-error-500/10">Excluir</button>
+                          </div>
+                        </td>
+                      </tr>
+                    </template>
+                    <template x-if="!loading && items.length === 0">
+                      <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500">Nenhum dashboard cadastrado.</td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ===================== MODAL: FORM ===================== -->
+            <div x-show="showForm" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center bg-black/50 p-4" @click.self="closeForm()">
+              <div class="w-full max-w-lg rounded-2xl bg-white p-6 dark:bg-gray-900">
+                <h3 class="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90" x-text="form.id ? 'Editar dashboard' : 'Novo dashboard'"></h3>
+                <div class="space-y-4">
+                  <div>
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Título</label>
+                    <input x-model="form.title" type="text" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                  </div>
+                  <div>
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Slug</label>
+                    <input x-model="form.slug" type="text" placeholder="ex.: vendas-mensais" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                  </div>
+                  <div>
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Embedded UUID</label>
+                    <input x-model="form.embeddedUuid" type="text" placeholder="cole o UUID do Superset" class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 font-mono text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                  </div>
+                  <div>
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Descrição</label>
+                    <textarea x-model="form.description" rows="2" class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
+                  </div>
+                  <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <input x-model="form.active" type="checkbox" class="h-4 w-4 rounded border-gray-300" />
+                    Ativo
+                  </label>
+                  <div x-show="formError" x-cloak class="rounded-lg border border-error-500/40 bg-error-500/10 px-4 py-2 text-sm text-error-700 dark:text-error-400" x-text="formError"></div>
+                </div>
+                <div class="mt-6 flex justify-end gap-2">
+                  <button type="button" @click="closeForm()" class="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]">Cancelar</button>
+                  <button type="button" @click="save()" :disabled="saving" class="rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-70">
+                    <span x-show="!saving">Salvar</span>
+                    <span x-show="saving">Salvando…</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ===================== MODAL: LIBERAR USUÁRIOS ===================== -->
+            <div x-show="showAssign" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center bg-black/50 p-4" @click.self="closeAssign()">
+              <div class="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl bg-white p-6 dark:bg-gray-900">
+                <h3 class="mb-1 text-lg font-semibold text-gray-800 dark:text-white/90">Liberar acesso</h3>
+                <p class="mb-4 text-sm text-gray-500" x-text="assignDashboard?.title"></p>
+                <div x-show="assignError" x-cloak class="mb-3 rounded-lg border border-error-500/40 bg-error-500/10 px-4 py-2 text-sm text-error-700 dark:text-error-400" x-text="assignError"></div>
+                <div class="flex-1 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-800">
+                  <template x-for="u in users" :key="u.id">
+                    <label class="flex items-center gap-3 border-b border-gray-100 px-4 py-2.5 text-sm text-gray-700 last:border-0 dark:border-gray-800 dark:text-gray-300">
+                      <input type="checkbox" :checked="assignedIds[u.id]" @change="assignedIds[u.id] = $event.target.checked" class="h-4 w-4 rounded border-gray-300" />
+                      <span>
+                        <span class="font-medium text-gray-800 dark:text-white/90" x-text="u.name"></span>
+                        <span class="text-gray-500" x-text="' — ' + u.email"></span>
+                      </span>
+                    </label>
+                  </template>
+                </div>
+                <div class="mt-6 flex justify-end gap-2">
+                  <button type="button" @click="closeAssign()" class="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]">Cancelar</button>
+                  <button type="button" @click="saveAssign()" :disabled="assignSaving" class="rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-70">
+                    <span x-show="!assignSaving">Salvar</span>
+                    <span x-show="assignSaving">Salvando…</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ===================== MODAL: CONFIRMAR EXCLUSÃO ===================== -->
+            <div x-show="confirmId" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center bg-black/50 p-4" @click.self="cancelDelete()">
+              <div class="w-full max-w-md rounded-2xl bg-white p-6 dark:bg-gray-900">
+                <h3 class="mb-2 text-lg font-semibold text-gray-800 dark:text-white/90">Excluir dashboard</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-300">
+                  Tem certeza que deseja excluir <strong x-text="confirmLabel"></strong>? Esta ação não pode ser desfeita.
+                </p>
+                <div class="mt-6 flex justify-end gap-2">
+                  <button type="button" @click="cancelDelete()" class="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]">Cancelar</button>
+                  <button type="button" @click="confirmDelete()" class="rounded-lg bg-error-600 px-5 py-2 text-sm font-medium text-white hover:bg-error-700">Excluir</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

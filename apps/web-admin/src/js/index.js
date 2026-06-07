@@ -20,6 +20,8 @@ import { registerUsersAlpine } from "./modules/users.js";
 import { registerProfilesAlpine } from "./modules/profiles.js";
 import { registerMeAlpine } from "./modules/me.js";
 import { registerConnectionsAlpine } from "./modules/connections.js";
+import { registerSupersetAlpine } from "./modules/superset.js";
+import { registerRelatoriosAlpine } from "./modules/relatorios.js";
 
 runAuthRouteGuard();
 
@@ -54,6 +56,8 @@ registerUsersAlpine();
 registerProfilesAlpine();
 registerMeAlpine();
 registerConnectionsAlpine();
+registerSupersetAlpine();
+registerRelatoriosAlpine();
 window.Alpine = Alpine;
 Alpine.start();
 

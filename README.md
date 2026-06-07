@@ -9,6 +9,7 @@ Monorepo **próprio** (npm workspaces + [Turborepo](https://turbo.build)) para b
 | `apps/api` | API NestJS, Prisma, PostgreSQL |
 | `apps/web-admin` | Painel (TailAdmin + Alpine + Webpack) |
 | `apps/pwa` | Reservado para PWA (fase posterior) |
+| `apps/superset` | Configuração do Apache Superset (módulo de BI) |
 | `packages/shared` | Pacote `@grupo-franciosi/shared` (constantes e tipos partilhados) |
 
 ## Requisitos
@@ -79,3 +80,60 @@ A imagem só baixa o Instant Client em `linux/amd64`. Em ARM a API sobe em
 modo *thin* — funciona com Postgres, MariaDB e SQL Server, mas Oracle exige
 modo *thick*. Se precisar de Oracle em ARM, monte um Instant Client ARM e
 ajuste o `ORACLE_CLIENT_LIB_DIR` no compose.
+
+## Módulo de BI (Apache Superset)
+
+O painel embute dashboards do **Apache Superset** de forma nativa (iframe sem
+login), usando o *Embedded SDK* + *guest token*. O Superset roda como serviço
+próprio no `docker-compose.prod.yml` (containers `superset`, `superset-worker`,
+`superset-init`, `superset-db` e `redis`), exposto pelo Traefik em
+`bi.grupofranciosi.agrigestao.tech`.
+
+### Arquitetura
+
+```
+web-admin (iframe) ──guest token──> API NestJS ──login + guest_token──> Superset
+```
+
+A API usa a conta admin do Superset (service account) para gerar um guest token
+de curta duração escopado ao dashboard liberado para o usuário logado. O acesso
+("quem vê qual dashboard") é controlado pelas tabelas do app
+(`SupersetDashboard` / `UserSupersetDashboard`) e pelas permissões
+`superset.read`, `superset.write` e `superset.assign`.
+
+### Configuração inicial (produção)
+
+1. Preencha as variáveis `SUPERSET_*` em `.env.production` (ver
+   `.env.production.example`). Gere segredos fortes para `SUPERSET_SECRET_KEY`
+   e `SUPERSET_GUEST_TOKEN_SECRET`.
+2. Suba o stack normalmente:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+   ```
+
+   O `superset-init` aplica as migrations, cria o admin e inicializa as roles.
+3. Acesse `https://bi.grupofranciosi.agrigestao.tech` e faça login com
+   `SUPERSET_ADMIN_USERNAME` / `SUPERSET_ADMIN_PASSWORD`.
+
+### Fluxo para publicar um dashboard no painel
+
+1. **No Superset**: conecte o banco (Settings → Database Connections), crie os
+   charts e monte o dashboard.
+2. No dashboard, menu **... → Embed dashboard** → **Enable embedding**. Copie o
+   **UUID** gerado e (se solicitado) adicione o domínio do painel
+   (`grupofranciosi.agrigestao.tech`) à lista de origens permitidas.
+3. **No painel** (`web-admin`), menu **BI / Superset → Dashboards**, aba
+   **Gerenciar** (requer `superset.write`): clique em **Novo dashboard**,
+   informe título, slug, a descrição e cole o **Embedded UUID**.
+4. Clique em **Liberar** (requer `superset.assign`) e marque os usuários que
+   poderão visualizar.
+5. Os usuários liberados (com `superset.read`) veem o dashboard embutido na aba
+   **Meus dashboards**.
+
+### Desenvolvimento local
+
+Para testar o embed localmente, aponte `SUPERSET_BASE_URL` /
+`SUPERSET_PUBLIC_URL` (em `apps/api/.env`) para uma instância do Superset
+acessível e configure `EMBEDDED_SUPERSET`, CORS e `frame-ancestors` para
+`http://localhost:3000` (ver `apps/superset/superset_config.py`).

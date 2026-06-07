@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
+    />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Relatórios | Agrigestão</title>
+  </head>
+  <body
+    x-data="{ page: 'relatorios', pageName: 'Relatórios', 'loaded': true, 'darkMode': false, 'stickyMenu': false, 'sidebarToggle': false, 'scrollTop': false }"
+    x-init="
+         darkMode = JSON.parse(localStorage.getItem('darkMode'));
+         $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(value)))"
+    :class="{'dark bg-gray-900': darkMode === true}"
+  >
+    <include src="./partials/preloader.html"></include>
+
+    <div class="flex h-screen overflow-hidden">
+      <include src="./partials/sidebar.html"></include>
+
+      <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto">
+        <include src="./partials/overlay.html" />
+        <include src="./partials/header.html" />
+
+        <main>
+          <div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6" x-data="relatoriosPage()" x-init="init()">
+            <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+              <div class="flex flex-col gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 class="text-base font-semibold text-gray-800 dark:text-white/90" x-text="selected ? selected.name : 'Produção de Milho em Grãos'"></h3>
+                  <p class="text-xs text-gray-500" x-show="generatedAt" x-cloak>
+                    Gerado em <span x-text="generatedAt"></span><span x-show="rowCount !== null"> · <span x-text="rowCount"></span> registros</span>
+                  </p>
+                </div>
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    @click="run()"
+                    :disabled="running"
+                    class="h-10 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
+                  >
+                    <span x-show="!running">Atualizar</span>
+                    <span x-show="running">Gerando…</span>
+                  </button>
+                  <button
+                    type="button"
+                    @click="exportHtml()"
+                    x-show="html && canExport"
+                    class="h-10 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300"
+                  >
+                    Exportar HTML
+                  </button>
+                </div>
+              </div>
+
+              <div x-show="runError" x-cloak class="mx-5 mt-4 rounded-lg border border-error-500/40 bg-error-500/10 px-4 py-3 text-sm text-error-700 dark:text-error-400" x-text="runError"></div>
+
+              <div class="p-4">
+                <template x-if="running">
+                  <div class="flex min-h-[300px] items-center justify-center rounded-xl border border-dashed border-gray-300 text-sm text-gray-400 dark:border-gray-700">
+                    Consultando a base de dados…
+                  </div>
+                </template>
+                <template x-if="!html && !running">
+                  <div class="flex min-h-[300px] items-center justify-center rounded-xl border border-dashed border-gray-300 text-sm text-gray-400 dark:border-gray-700">
+                    Clique em "Atualizar" para gerar o relatório.
+                  </div>
+                </template>
+                <iframe
+                  x-show="html"
+                  x-cloak
+                  :srcdoc="html"
+                  title="Pré-visualização do relatório"
+                  class="h-[80vh] w-full rounded-xl border border-gray-200 bg-white dark:border-gray-800"
+                ></iframe>
+              </div>
+            </div>
+
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
