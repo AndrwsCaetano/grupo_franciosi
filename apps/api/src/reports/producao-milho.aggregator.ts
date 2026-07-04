@@ -1,363 +1,482 @@
 /**
- * Agrega as linhas brutas da query Oracle de "Produção de Milho em Grãos" nas
- * estruturas que alimentam o template HTML (cards, filiais, tabela por talhão e
- * gráfico por variedade). Cada linha de entrada equivale a uma carga/ticket.
+ * Agrega as linhas das 3 queries Oracle de "Produção de Milho (Franciosi TGA)"
+ * nas estruturas que alimentam o template HTML (cards, fazendas, tabela por
+ * talhão e gráfico por variedade). Portado de jarvis_report/estoqueMilhoBlock.ts.
  */
 
-const SACA_KG = 60;
-
-export interface ProducaoMilhoTotais {
-  kg: number;
-  sc: number;
-  cargas: number;
-}
-
-export interface ProducaoMilhoDia {
-  /** Rótulo dd/mm/aaaa do dia (ou '—' quando não há dia anterior). */
-  dateLabel: string;
-  kg: number;
-  sc: number;
-  cargas: number;
-}
-
-export interface ProducaoMilhoFilial {
-  name: string;
-  kg: number;
-  sc: number;
-}
-
-export interface ProducaoMilhoTalhao {
-  filial: string;
-  talhao: string;
-  variedade: string;
-  cargas: number;
-  kg: number;
-  umidadeMedia: number;
-  descUmidade: number;
-  descImpureza: number;
-  sc: number;
-  hectares: number;
-  scPorHa: number;
-  finalizado: boolean;
-}
-
-export interface ProducaoMilhoTalhoesTotal {
-  nTalhoes: number;
-  cargas: number;
-  kg: number;
-  descUmidade: number;
-  descImpureza: number;
-  sc: number;
-  hectares: number;
-  scPorHa: number;
-}
-
-export interface ProducaoMilhoVariedade {
-  variedade: string;
-  sc: number;
-  nTalhoes: number;
-  hectares: number;
-  /** Largura da barra: percentual relativo à variedade de maior SC. */
-  widthPercent: number;
-  /** Rótulo: participação no total de SC (soma 100% entre variedades). */
-  percent: number;
-}
-
-export interface ProducaoMilhoVariedadesTotal {
-  sc: number;
-  nVariedades: number;
-  hectares: number;
-  scPorHaMedia: number;
-}
-
-export interface ProducaoMilhoData {
-  total: ProducaoMilhoTotais;
-  diaAtual: ProducaoMilhoDia;
-  diaAnterior: ProducaoMilhoDia;
-  filiais: ProducaoMilhoFilial[];
-  talhoes: ProducaoMilhoTalhao[];
-  talhoesTotal: ProducaoMilhoTalhoesTotal;
-  variedades: ProducaoMilhoVariedade[];
-  variedadesTotal: ProducaoMilhoVariedadesTotal;
-}
+const KG_POR_SACA = 60;
+const MILHO_SAFRA_DESCRICAO = '2025/2026';
 
 type RawRow = Record<string, unknown>;
 
-function pick(row: RawRow, key: string): unknown {
-  if (key in row) {
-    return row[key];
-  }
-  // Acesso case-insensitive (oracledb devolve as colunas em MAIÚSCULAS).
-  const upper = key.toUpperCase();
+export interface ProducaoMilhoDiaAnteriorStats {
+  kg: number;
+  cargas: number;
+}
+
+export interface ProducaoMilhoData {
+  totalKg: string;
+  totalSc: string;
+  totalCargas: string;
+  anteriorDataBr: string;
+  anteriorKg: string;
+  anteriorSc: string;
+  anteriorCargas: string;
+  mediaScHa: string;
+  mediaScHaHectares: string;
+  qtdCargas: string;
+  fazendaCardsHtml: string;
+  fazendaListHtml: string;
+  talhaoTbodyHtml: string;
+  talhaoTfootHtml: string;
+  chartBarsHtml: string;
+  chartTotalSc: string;
+  chartQtdVariedades: string;
+  chartHectaresTotal: string;
+  chartScHaMedia: string;
+}
+
+function foldKey(s: string): string {
+  return String(s)
+    .trim()
+    .normalize('NFD')
+    .replace(/\p{M}+/gu, '')
+    .toLowerCase();
+}
+
+function pickCol(row: RawRow, logical: string): unknown {
+  const target = foldKey(logical);
   for (const k of Object.keys(row)) {
-    if (k.toUpperCase() === upper) {
+    if (foldKey(k) === target) {
       return row[k];
     }
   }
   return undefined;
 }
 
-function num(v: unknown): number {
-  if (v == null) {
+function toNum(val: unknown): number {
+  if (val === null || val === undefined || val === '') {
     return 0;
   }
-  if (typeof v === 'number') {
-    return Number.isFinite(v) ? v : 0;
-  }
-  const n = parseFloat(String(v).replace(/\./g, '').replace(',', '.'));
+  const n = Number(val);
   return Number.isFinite(n) ? n : 0;
 }
 
-function str(v: unknown): string {
-  if (v == null) {
-    return '';
-  }
-  return String(v).trim();
+function fmtInt(n: number): string {
+  return Math.round(n).toLocaleString('pt-BR');
 }
 
-function isFinalizado(v: unknown): boolean {
-  const s = str(v).toUpperCase();
-  return s === 'S' || s === '1' || s === 'SIM' || s === 'T' || s === 'Y';
+function fmtDec(n: number, digits = 2): string {
+  return n.toLocaleString('pt-BR', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
 }
 
-/** Componentes de calendário (ano-mês-dia) usados para agrupar por dia. */
-function dayParts(v: unknown): { key: string; label: string } | null {
-  if (v == null) {
-    return null;
+function fmtKgSc(kg: number): { kg: string; sc: string } {
+  return { kg: fmtInt(kg), sc: fmtDec(kg / KG_POR_SACA) };
+}
+
+function escapeHtml(str: string): string {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function ymdToBr(ymd: string): string {
+  const [y, m, d] = ymd.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function getYesterdayYmdSp(): string {
+  const todaySp = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+  });
+  const [y, m, d] = todaySp.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+function isFinalizado(val: unknown): boolean {
+  const f = foldKey(String(val ?? ''));
+  return (
+    f === 's' ||
+    f === 'sim' ||
+    f === 'y' ||
+    f === 'yes' ||
+    f === '1' ||
+    f === 'finalizado'
+  );
+}
+
+function finalizadoBadge(allFinalizado: boolean): string {
+  if (allFinalizado) {
+    return `<span class="badge-status badge-status--ok">Finalizado</span>`;
   }
-  let d: Date | null = null;
-  if (v instanceof Date) {
-    d = v;
-  } else {
-    const s = String(v);
-    const parsed = new Date(s);
-    if (!Number.isNaN(parsed.getTime())) {
-      d = parsed;
-    } else {
-      // Tenta formato dd/mm/aaaa
-      const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-      if (m) {
-        return {
-          key: `${m[3]}-${m[2]}-${m[1]}`,
-          label: `${m[1]}/${m[2]}/${m[3]}`,
-        };
-      }
+  return `<span class="badge-status badge-status--pending">Em andamento</span>`;
+}
+
+function cargasLabel(n: number): string {
+  return n === 1 ? '1 carga' : `${fmtInt(n)} cargas`;
+}
+
+function talhaoLabel(n: number): string {
+  return n === 1 ? '1 talhão' : `${fmtInt(n)} talhões`;
+}
+
+function hectaresLabel(n: number): string {
+  return n === 1 ? '1 hectare colhido' : `${fmtDec(n)} hectares colhidos`;
+}
+
+function parseAreaFazendaRows(rows: RawRow[]): Map<string, number> {
+  const byFazenda = new Map<string, number>();
+  for (const row of rows) {
+    const fazenda = String(pickCol(row, 'fazenda') ?? '').trim();
+    if (!fazenda) {
+      continue;
     }
+    byFazenda.set(fazenda, toNum(pickCol(row, 'hectares')));
   }
-  if (!d) {
-    return null;
+  return byFazenda;
+}
+
+export function parseProducaoMilhoDiaAnteriorStats(
+  rows: RawRow[],
+): ProducaoMilhoDiaAnteriorStats {
+  const row = rows[0];
+  if (!row) {
+    return { kg: 0, cargas: 0 };
   }
-  const y = d.getFullYear();
-  const mo = d.getMonth() + 1;
-  const da = d.getDate();
-  const pad = (n: number) => String(n).padStart(2, '0');
   return {
-    key: `${y}-${pad(mo)}-${pad(da)}`,
-    label: `${pad(da)}/${pad(mo)}/${y}`,
+    kg: toNum(pickCol(row, 'peso_liquido')),
+    cargas: toNum(pickCol(row, 'qtd_carga')),
   };
 }
 
-function toSc(kg: number): number {
-  return kg / SACA_KG;
+interface TalhaoRow {
+  fazenda: string;
+  talhao: string;
+  variedade: string;
+  cargas: number;
+  pesoLiquido: number;
+  percUmidade: number;
+  desUmidade: number;
+  desImpureza: number;
+  sc60: number;
+  hectares: number;
+  hectaresColhidos: number;
+  scHa: number;
+  allFinalizado: boolean;
 }
 
-const EMPTY_DIA: ProducaoMilhoDia = {
-  dateLabel: '—',
-  kg: 0,
-  sc: 0,
-  cargas: 0,
-};
+interface VariedadeAgg {
+  variedade: string;
+  sc: number;
+  talhoes: Set<string>;
+  hectaresColhidosByTalhao: Map<string, number>;
+}
 
-export function aggregateProducaoMilho(rows: RawRow[]): ProducaoMilhoData {
-  // --- Totais e por dia ---
+export function aggregateProducaoMilho(
+  rows: RawRow[],
+  anteriorStats: ProducaoMilhoDiaAnteriorStats = { kg: 0, cargas: 0 },
+  areaFazendaRows: RawRow[] = [],
+): ProducaoMilhoData {
+  const yesterdayBr = ymdToBr(getYesterdayYmdSp());
+  const areaByFazenda = parseAreaFazendaRows(areaFazendaRows);
+
   let totalKg = 0;
-  const totalCargas = rows.length;
-  const porDia = new Map<
-    string,
-    { label: string; kg: number; cargas: number }
-  >();
+  let totalCargas = 0;
+  let totalSc60 = 0;
+  let totalHectaresColhidos = 0;
 
-  // --- Por filial ---
-  const filialMap = new Map<string, { kg: number }>();
-
-  // --- Por talhão (filial + talhão + variedade) ---
-  interface TalhaoAcc {
-    filial: string;
-    talhao: string;
-    variedade: string;
-    cargas: number;
-    kg: number;
-    umidadeSoma: number;
-    descUmidade: number;
-    descImpureza: number;
-    hectares: number;
-    finalizado: boolean;
-  }
-  const talhaoMap = new Map<string, TalhaoAcc>();
+  const byFazenda = new Map<string, number>();
+  const byFazendaSc60 = new Map<string, number>();
+  const byFazendaHaColhidosByTalhao = new Map<string, Map<string, number>>();
+  const talhoes: TalhaoRow[] = [];
+  const byVariedade = new Map<string, VariedadeAgg>();
 
   for (const row of rows) {
-    const peso = num(pick(row, 'PESO_LIQUIDO'));
+    const fazenda =
+      String(pickCol(row, 'fazenda') ?? '— Sem fazenda').trim() ||
+      '— Sem fazenda';
+    const talhao = String(pickCol(row, 'talhao') ?? '—').trim() || '—';
+    const variedade =
+      String(pickCol(row, 'variedade') ?? '— Sem variedade').trim() ||
+      '— Sem variedade';
+    const cargas = toNum(pickCol(row, 'qtd_carga'));
+    const peso = toNum(pickCol(row, 'peso_liquido'));
+    const percUmidade = toNum(pickCol(row, 'perc_umidade'));
+    const desUmidade = toNum(pickCol(row, 'desc_umidade'));
+    const desImpureza = toNum(pickCol(row, 'desc_impureza'));
+    const sc60 = toNum(pickCol(row, 'qtd_sc60')) || peso / KG_POR_SACA;
+    const hectares = toNum(pickCol(row, 'hectares'));
+    const hectaresColhidos = toNum(pickCol(row, 'hectares_colhidos'));
+    const scHa = toNum(pickCol(row, 'qtd_sc_hectares'));
+    const fin = isFinalizado(pickCol(row, 'finalizado'));
+
     totalKg += peso;
+    totalCargas += cargas;
+    totalSc60 += sc60;
+    totalHectaresColhidos += hectaresColhidos;
+    byFazenda.set(fazenda, (byFazenda.get(fazenda) ?? 0) + peso);
+    byFazendaSc60.set(fazenda, (byFazendaSc60.get(fazenda) ?? 0) + sc60);
 
-    const dp = dayParts(pick(row, 'DT_ENTRADA'));
-    if (dp) {
-      const cur = porDia.get(dp.key) ?? { label: dp.label, kg: 0, cargas: 0 };
-      cur.kg += peso;
-      cur.cargas += 1;
-      porDia.set(dp.key, cur);
-    }
-
-    const filial = str(pick(row, 'FILIAL')) || '—';
-    const fil = filialMap.get(filial) ?? { kg: 0 };
-    fil.kg += peso;
-    filialMap.set(filial, fil);
-
-    const talhao = str(pick(row, 'TALHAO')) || '—';
-    const variedade = str(pick(row, 'VARIEDADE')) || '—';
-    const key = `${filial}||${talhao}||${variedade}`;
-    const acc =
-      talhaoMap.get(key) ??
-      ({
-        filial,
-        talhao,
-        variedade,
-        cargas: 0,
-        kg: 0,
-        umidadeSoma: 0,
-        descUmidade: 0,
-        descImpureza: 0,
-        hectares: 0,
-        finalizado: false,
-      } as TalhaoAcc);
-    acc.cargas += 1;
-    acc.kg += peso;
-    acc.umidadeSoma += num(pick(row, 'PERC_UMIDADE'));
-    acc.descUmidade += num(pick(row, 'DES_UMIDADE'));
-    acc.descImpureza += num(pick(row, 'DES_IMPUREZA'));
-    // Hectares é propriedade do talhão (não soma por carga): usa primeiro valor.
-    const ha = num(pick(row, 'HECTARES'));
-    if (acc.hectares === 0 && ha > 0) {
-      acc.hectares = ha;
-    }
-    if (isFinalizado(pick(row, 'FINALIZADO'))) {
-      acc.finalizado = true;
-    }
-    talhaoMap.set(key, acc);
-  }
-
-  // --- Dia atual / dia anterior (datas com dados, mais recentes) ---
-  const diasOrdenados = [...porDia.entries()].sort((a, b) =>
-    a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0,
-  );
-  const diaAtual: ProducaoMilhoDia = diasOrdenados[0]
-    ? {
-        dateLabel: diasOrdenados[0][1].label,
-        kg: diasOrdenados[0][1].kg,
-        sc: toSc(diasOrdenados[0][1].kg),
-        cargas: diasOrdenados[0][1].cargas,
+    if (talhao !== '—' && hectaresColhidos > 0) {
+      const haMap =
+        byFazendaHaColhidosByTalhao.get(fazenda) ?? new Map<string, number>();
+      const prevHa = haMap.get(talhao) ?? 0;
+      if (hectaresColhidos > prevHa) {
+        haMap.set(talhao, hectaresColhidos);
       }
-    : { ...EMPTY_DIA };
-  const diaAnterior: ProducaoMilhoDia = diasOrdenados[1]
-    ? {
-        dateLabel: diasOrdenados[1][1].label,
-        kg: diasOrdenados[1][1].kg,
-        sc: toSc(diasOrdenados[1][1].kg),
-        cargas: diasOrdenados[1][1].cargas,
-      }
-    : { ...EMPTY_DIA };
+      byFazendaHaColhidosByTalhao.set(fazenda, haMap);
+    }
 
-  // --- Filiais ---
-  const filiais: ProducaoMilhoFilial[] = [...filialMap.entries()]
-    .map(([name, v]) => ({ name, kg: v.kg, sc: toSc(v.kg) }))
-    .sort((a, b) => b.kg - a.kg);
-
-  // --- Talhões ---
-  const talhoes: ProducaoMilhoTalhao[] = [...talhaoMap.values()]
-    .map((a) => ({
-      filial: a.filial,
-      talhao: a.talhao,
-      variedade: a.variedade,
-      cargas: a.cargas,
-      kg: a.kg,
-      umidadeMedia: a.cargas > 0 ? a.umidadeSoma / a.cargas : 0,
-      descUmidade: a.descUmidade,
-      descImpureza: a.descImpureza,
-      sc: toSc(a.kg),
-      hectares: a.hectares,
-      scPorHa: a.hectares > 0 ? toSc(a.kg) / a.hectares : 0,
-      finalizado: a.finalizado,
-    }))
-    .sort(
-      (a, b) =>
-        a.filial.localeCompare(b.filial) ||
-        a.talhao.localeCompare(b.talhao) ||
-        a.variedade.localeCompare(b.variedade),
-    );
-
-  const talhoesHectaresTotal = talhoes.reduce((s, t) => s + t.hectares, 0);
-  const talhoesTotal: ProducaoMilhoTalhoesTotal = {
-    nTalhoes: talhoes.length,
-    cargas: talhoes.reduce((s, t) => s + t.cargas, 0),
-    kg: totalKg,
-    descUmidade: talhoes.reduce((s, t) => s + t.descUmidade, 0),
-    descImpureza: talhoes.reduce((s, t) => s + t.descImpureza, 0),
-    sc: toSc(totalKg),
-    hectares: talhoesHectaresTotal,
-    scPorHa: talhoesHectaresTotal > 0 ? toSc(totalKg) / talhoesHectaresTotal : 0,
-  };
-
-  // --- Variedades (gráfico) ---
-  const variedadeMap = new Map<
-    string,
-    { kg: number; nTalhoes: number; hectares: number }
-  >();
-  for (const t of talhoes) {
-    const v = variedadeMap.get(t.variedade) ?? {
-      kg: 0,
-      nTalhoes: 0,
-      hectares: 0,
-    };
-    v.kg += t.kg;
-    v.nTalhoes += 1;
-    v.hectares += t.hectares;
-    variedadeMap.set(t.variedade, v);
-  }
-  const variedadesRaw = [...variedadeMap.entries()]
-    .map(([variedade, v]) => ({
+    talhoes.push({
+      fazenda,
+      talhao,
       variedade,
-      sc: toSc(v.kg),
-      nTalhoes: v.nTalhoes,
-      hectares: v.hectares,
-    }))
-    .sort((a, b) => b.sc - a.sc);
-  const maxSc = variedadesRaw.length > 0 ? variedadesRaw[0].sc : 0;
-  const totalSc = toSc(totalKg);
-  const variedades: ProducaoMilhoVariedade[] = variedadesRaw.map((v) => ({
-    ...v,
-    widthPercent: maxSc > 0 ? (v.sc / maxSc) * 100 : 0,
-    percent: totalSc > 0 ? (v.sc / totalSc) * 100 : 0,
-  }));
+      cargas,
+      pesoLiquido: peso,
+      percUmidade,
+      desUmidade,
+      desImpureza,
+      sc60,
+      hectares,
+      hectaresColhidos,
+      scHa,
+      allFinalizado: fin,
+    });
 
-  const variedadesHectaresTotal = variedades.reduce(
-    (s, v) => s + v.hectares,
-    0,
+    const curVar = byVariedade.get(variedade) ?? {
+      variedade,
+      sc: 0,
+      talhoes: new Set<string>(),
+      hectaresColhidosByTalhao: new Map<string, number>(),
+    };
+    curVar.sc += sc60;
+    if (talhao !== '—') {
+      curVar.talhoes.add(`${fazenda}\0${talhao}`);
+    }
+    const haKey = `${fazenda}\0${talhao}`;
+    const prevHa = curVar.hectaresColhidosByTalhao.get(haKey) ?? 0;
+    if (hectaresColhidos > prevHa) {
+      curVar.hectaresColhidosByTalhao.set(haKey, hectaresColhidos);
+    }
+    byVariedade.set(variedade, curVar);
+  }
+
+  const totalFmt = fmtKgSc(totalKg);
+  const anteriorFmt = fmtKgSc(anteriorStats.kg);
+  const mediaScHa =
+    totalHectaresColhidos > 0 ? totalSc60 / totalHectaresColhidos : 0;
+
+  const allFazendaNames = new Set<string>([
+    ...areaByFazenda.keys(),
+    ...byFazendaSc60.keys(),
+  ]);
+  const fazendasCardsSorted = [...allFazendaNames].sort((a, b) =>
+    a.localeCompare(b, 'pt-BR'),
   );
-  const variedadesTotal: ProducaoMilhoVariedadesTotal = {
-    sc: toSc(totalKg),
-    nVariedades: variedades.length,
-    hectares: variedadesHectaresTotal,
-    scPorHaMedia:
-      variedadesHectaresTotal > 0 ? toSc(totalKg) / variedadesHectaresTotal : 0,
-  };
+
+  const fazendaCardsHtml =
+    fazendasCardsSorted.length === 0
+      ? `<div class="empty-state-msg">Nenhuma fazenda cadastrada na safra ${MILHO_SAFRA_DESCRICAO}.</div>`
+      : fazendasCardsSorted
+          .map((nome) => {
+            const haTotal = areaByFazenda.get(nome) ?? 0;
+            const haMap = byFazendaHaColhidosByTalhao.get(nome);
+            const haColhidos = haMap
+              ? [...haMap.values()].reduce((a, b) => a + b, 0)
+              : 0;
+            const sc60Fazenda = byFazendaSc60.get(nome) ?? 0;
+            const pctColheita =
+              haTotal > 0
+                ? Math.round((100 * haColhidos) / haTotal)
+                : haColhidos > 0
+                  ? 100
+                  : 0;
+            const mediaScHaFazenda =
+              haColhidos > 0 ? fmtDec(sc60Fazenda / haColhidos) : '—';
+            const pctLabel = haTotal > 0 ? `${pctColheita}%` : '—';
+
+            return `<div class="card card-fazenda">
+          <div class="card-label">Fazenda</div>
+          <div class="card-title">${escapeHtml(nome)}</div>
+          <div class="card-fazenda-stat">
+            <span class="card-fazenda-stat-label">Área total</span>
+            <span class="card-fazenda-stat-value">${fmtDec(haTotal)} <span class="text-unit-small">ha</span></span>
+          </div>
+          <div class="card-fazenda-stat">
+            <span class="card-fazenda-stat-label">Colhido</span>
+            <span class="card-fazenda-stat-value">${haColhidos > 0 ? fmtDec(haColhidos) : '0,00'} <span class="text-unit-small">ha</span> <span class="card-fazenda-pct">(${pctLabel})</span></span>
+          </div>
+          <div class="card-fazenda-stat card-fazenda-stat--media">
+            <span class="card-fazenda-stat-label">Média SC 60 / ha</span>
+            <span class="card-fazenda-stat-value card-fazenda-media">${mediaScHaFazenda}${mediaScHaFazenda !== '—' ? ' <span class="text-unit-small">SC/ha</span>' : ''}</span>
+          </div>
+        </div>`;
+          })
+          .join('\n');
+
+  const fazendasSorted = [...byFazenda.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0], 'pt-BR'),
+  );
+  const fazendaListHtml =
+    fazendasSorted.length === 0
+      ? `<div class="empty-state-msg">Nenhuma pesagem registrada.</div>`
+      : fazendasSorted
+          .map(([nome, kg]) => {
+            const { kg: kgS, sc } = fmtKgSc(kg);
+            return `<div class="filial-item">
+          <div class="filial-name">${escapeHtml(nome)}</div>
+          <div class="filial-peso">${kgS}<small>KG</small></div>
+          <div class="filial-sc">${sc}<small>SC</small></div>
+        </div>`;
+          })
+          .join('\n');
+
+  talhoes.sort((a, b) => {
+    const c = a.fazenda.localeCompare(b.fazenda, 'pt-BR');
+    if (c !== 0) {
+      return c;
+    }
+    const d = a.talhao.localeCompare(b.talhao, 'pt-BR');
+    if (d !== 0) {
+      return d;
+    }
+    return a.variedade.localeCompare(b.variedade, 'pt-BR');
+  });
+
+  let footCargas = 0;
+  let footPeso = 0;
+  let footDesUmidade = 0;
+  let footDesImpureza = 0;
+  let footSc = 0;
+  let footHa = 0;
+  let footHaColhidos = 0;
+
+  const talhaoTbodyHtml =
+    talhoes.length === 0
+      ? `<tr><td colspan="13" style="text-align:center;padding:20px;color:var(--texto-suave);">Nenhum talhão com pesagem registrada.</td></tr>`
+      : talhoes
+          .map((t) => {
+            footCargas += t.cargas;
+            footPeso += t.pesoLiquido;
+            footDesUmidade += t.desUmidade;
+            footDesImpureza += t.desImpureza;
+            footSc += t.sc60;
+            footHa += t.hectares;
+            footHaColhidos += t.hectaresColhidos;
+            return `<tr>
+            <td class="filial-td">${escapeHtml(t.fazenda)}</td>
+            <td>${escapeHtml(t.talhao)}</td>
+            <td>${escapeHtml(t.variedade)}</td>
+            <td class="num">${fmtInt(t.cargas)}</td>
+            <td class="num">${fmtInt(t.pesoLiquido)}</td>
+            <td class="num">${fmtDec(t.percUmidade)}</td>
+            <td class="num">${fmtInt(t.desUmidade)}</td>
+            <td class="num">${fmtInt(t.desImpureza)}</td>
+            <td class="num">${fmtDec(t.sc60)}</td>
+            <td class="num">${fmtInt(t.hectares)}</td>
+            <td class="num">${t.hectaresColhidos > 0 ? fmtDec(t.hectaresColhidos) : '—'}</td>
+            <td class="num">${t.hectaresColhidos > 0 ? fmtDec(t.scHa) : '—'}</td>
+            <td>${finalizadoBadge(t.allFinalizado)}</td>
+          </tr>`;
+          })
+          .join('\n');
+
+  const scHaMediaFoot =
+    footHaColhidos > 0 ? fmtDec(footSc / footHaColhidos) : '—';
+  const talhaoTfootHtml =
+    talhoes.length === 0
+      ? ''
+      : `<tr>
+            <td colspan="3">TOTAL · ${talhaoLabel(talhoes.length)}</td>
+            <td class="num">${fmtInt(footCargas)}</td>
+            <td class="num">${fmtInt(footPeso)}</td>
+            <td class="num">—</td>
+            <td class="num">${fmtInt(footDesUmidade)}</td>
+            <td class="num">${fmtInt(footDesImpureza)}</td>
+            <td class="num">${fmtDec(footSc)}</td>
+            <td class="num">${fmtInt(footHa)}</td>
+            <td class="num">${footHaColhidos > 0 ? fmtDec(footHaColhidos) : '—'}</td>
+            <td class="num">${scHaMediaFoot}</td>
+            <td></td>
+          </tr>`;
+
+  const variedades = [...byVariedade.values()].sort((a, b) => b.sc - a.sc);
+  const maxSc = variedades.length > 0 ? variedades[0].sc : 0;
+  let chartTotalSc = 0;
+  let chartHectaresColhidos = 0;
+
+  for (const v of variedades) {
+    chartTotalSc += v.sc;
+    chartHectaresColhidos += [
+      ...v.hectaresColhidosByTalhao.values(),
+    ].reduce((a, b) => a + b, 0);
+  }
+
+  const chartBarsHtml =
+    variedades.length === 0
+      ? `<div class="empty-state-msg" style="padding:20px;">Nenhuma variedade registrada.</div>`
+      : variedades
+          .map((v) => {
+            const haTotal = [...v.hectaresColhidosByTalhao.values()].reduce(
+              (a, b) => a + b,
+              0,
+            );
+            const pct = maxSc > 0 ? Math.round((100 * v.sc) / maxSc) : 0;
+            const width = Math.max(pct, v.sc > 0 ? 8 : 0);
+            const pctTotal =
+              chartTotalSc > 0 ? Math.round((100 * v.sc) / chartTotalSc) : 0;
+            return `<div class="chart-bar-row">
+        <div class="chart-bar-label">
+          <span class="chart-bar-variety">${escapeHtml(v.variedade)}</span>
+          <span class="chart-bar-meta">${talhaoLabel(v.talhoes.size)} · ${fmtDec(haTotal)} ha colhidos</span>
+        </div>
+        <div class="chart-bar-track">
+          <div class="chart-bar-fill" style="width: ${width}%;">
+            <span class="chart-bar-value">${fmtDec(v.sc)} SC</span>
+          </div>
+        </div>
+        <div class="chart-bar-percent">${pctTotal}%</div>
+      </div>`;
+          })
+          .join('\n');
+
+  const chartScHaMedia =
+    chartHectaresColhidos > 0 ? chartTotalSc / chartHectaresColhidos : 0;
 
   return {
-    total: { kg: totalKg, sc: toSc(totalKg), cargas: totalCargas },
-    diaAtual,
-    diaAnterior,
-    filiais,
-    talhoes,
-    talhoesTotal,
-    variedades,
-    variedadesTotal,
+    totalKg: totalFmt.kg,
+    totalSc: totalFmt.sc,
+    totalCargas: cargasLabel(totalCargas),
+    anteriorDataBr: yesterdayBr,
+    anteriorKg: anteriorFmt.kg,
+    anteriorSc: anteriorFmt.sc,
+    anteriorCargas: cargasLabel(anteriorStats.cargas),
+    mediaScHa: totalHectaresColhidos > 0 ? fmtDec(mediaScHa) : '—',
+    mediaScHaHectares:
+      totalHectaresColhidos > 0
+        ? hectaresLabel(totalHectaresColhidos)
+        : 'Sem hectares colhidos',
+    qtdCargas: fmtInt(totalCargas),
+    fazendaCardsHtml,
+    fazendaListHtml,
+    talhaoTbodyHtml,
+    talhaoTfootHtml,
+    chartBarsHtml,
+    chartTotalSc: fmtDec(chartTotalSc),
+    chartQtdVariedades: fmtInt(variedades.length),
+    chartHectaresTotal: fmtDec(chartHectaresColhidos),
+    chartScHaMedia:
+      chartHectaresColhidos > 0 ? fmtDec(chartScHaMedia) : '—',
   };
 }

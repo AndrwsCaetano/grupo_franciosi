@@ -1,44 +1,8 @@
 /**
  * Renderiza o HTML (documento completo e autossuficiente) do relatório
- * "Produção de Milho em Grãos", idêntico ao modelo de referência. Recebe os
- * dados já agregados e a data de geração formatada.
+ * "Produção de Milho (Franciosi TGA)", alinhado ao jarvis_report.
  */
-import {
-  ProducaoMilhoData,
-  ProducaoMilhoVariedade,
-} from './producao-milho.aggregator';
-
-const nfKg = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
-const nfDec2 = new Intl.NumberFormat('pt-BR', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-const nfInt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
-
-function fmtKg(n: number): string {
-  return nfKg.format(Math.round(n));
-}
-function fmtSc(n: number): string {
-  return nfDec2.format(n);
-}
-function fmtDec2(n: number): string {
-  return nfDec2.format(n);
-}
-function fmtInt(n: number): string {
-  return nfInt.format(Math.round(n));
-}
-function fmtPercent(n: number): string {
-  return `${Math.round(n)}%`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+import { ProducaoMilhoData } from './producao-milho.aggregator';
 
 /** Formata a data de geração no padrão pt-BR (America/Sao_Paulo). */
 export function formatGeneratedAt(date: Date): string {
@@ -58,76 +22,20 @@ export function formatGeneratedAt(date: Date): string {
   return `${dateFmt.format(date)}, ${timeFmt.format(date)}`;
 }
 
-function filialRow(f: ProducaoMilhoData['filiais'][number]): string {
-  return `        <div class="filial-item">
-          <div class="filial-name">${escapeHtml(f.name)}</div>
-          <div class="filial-peso">${fmtKg(f.kg)}<small>KG</small></div>
-          <div class="filial-sc">${fmtSc(f.sc)}<small>SC</small></div>
-        </div>`;
-}
-
-function talhaoRow(t: ProducaoMilhoData['talhoes'][number]): string {
-  const badge = t.finalizado
-    ? `<span style="display:inline-block;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:700;text-transform:uppercase;background:rgba(62,176,73,0.14);color:var(--verde-logo);">Finalizado</span>`
-    : `<span style="display:inline-block;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:700;text-transform:uppercase;background:rgba(217,119,6,0.12);color:var(--alerta);">Em andamento</span>`;
-  return `          <tr>
-            <td class="filial-td">${escapeHtml(t.filial)}</td>
-            <td>${escapeHtml(t.talhao)}</td>
-            <td>${escapeHtml(t.variedade)}</td>
-            <td class="num">${fmtInt(t.cargas)}</td>
-            <td class="num">${fmtKg(t.kg)}</td>
-            <td class="num">${fmtDec2(t.umidadeMedia)}</td>
-            <td class="num">${fmtKg(t.descUmidade)}</td>
-            <td class="num">${fmtKg(t.descImpureza)}</td>
-            <td class="num">${fmtSc(t.sc)}</td>
-            <td class="num">${fmtInt(t.hectares)}</td>
-            <td class="num">${fmtDec2(t.scPorHa)}</td>
-            <td>${badge}</td>
-          </tr>`;
-}
-
-function variedadeBar(v: ProducaoMilhoVariedade): string {
-  const talhaoLabel = `${fmtInt(v.nTalhoes)} ${
-    v.nTalhoes === 1 ? 'talhão' : 'talhões'
-  } · ${fmtInt(v.hectares)} ha`;
-  return `      <div class="chart-bar-row">
-        <div class="chart-bar-label">
-          <span class="chart-bar-variety">${escapeHtml(v.variedade)}</span>
-          <span class="chart-bar-meta">${talhaoLabel}</span>
-        </div>
-        <div class="chart-bar-track">
-          <div class="chart-bar-fill" style="width: ${v.widthPercent.toFixed(
-            0,
-          )}%;">
-            <span class="chart-bar-value">${fmtSc(v.sc)} SC</span>
-          </div>
-        </div>
-        <div class="chart-bar-percent">${fmtPercent(v.percent)}</div>
-      </div>`;
-}
-
 export function renderProducaoMilho(
   data: ProducaoMilhoData,
   generatedAt: string,
 ): string {
-  const filiaisHtml = data.filiais.map(filialRow).join('\n');
-  const talhoesHtml = data.talhoes.map(talhaoRow).join('\n');
-  const variedadesHtml = data.variedades.map(variedadeBar).join('\n');
-  const nTalhoesLabel = `${fmtInt(data.talhoesTotal.nTalhoes)} ${
-    data.talhoesTotal.nTalhoes === 1 ? 'talhão' : 'talhões'
-  }`;
-  const scUnitSpan =
-    '<span style="font-size:10px;font-weight:600;color:var(--texto-suave);letter-spacing:1px;">SC 60 KG</span>';
-
   return `<!DOCTYPE html>
 <!-- jarvis-bundled-report:estoque-milho-franciosi -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Produção de Milho em Grãos · Grupo Franciosi</title>
+<title>Produção de Milho · Grupo Franciosi</title>
 <style>
   :root {
+    --fs-scale: 1;
     --azul-royal: #1e5fa8;
     --azul-profundo: #164a85;
     --azul-medio: #2d8fb8;
@@ -146,6 +54,53 @@ export function renderProducaoMilho(
     --alerta: #d97706;
     --borda-suave: rgba(30, 95, 168, 0.1);
   }
+  body:has(#fs-large:checked) { --fs-scale: 1.15; }
+  body:has(#fs-xlarge:checked) { --fs-scale: 1.3; }
+
+  .font-size-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    background: var(--branco);
+    border: 1px solid var(--borda-suave);
+    border-radius: 10px;
+    box-shadow: 0 2px 8px -4px rgba(30, 95, 168, 0.12);
+  }
+  .font-size-controls-label {
+    font-size: calc(13px * var(--fs-scale));
+    font-weight: 700;
+    color: var(--azul-profundo);
+    margin-right: 4px;
+  }
+  .font-size-controls input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+  .font-size-controls label {
+    display: inline-block;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--borda-suave);
+    background: var(--creme);
+    font-size: calc(13px * var(--fs-scale));
+    font-weight: 600;
+    color: var(--texto);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  .font-size-controls input:checked + label {
+    background: var(--azul-royal);
+    border-color: var(--azul-royal);
+    color: white;
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -158,7 +113,7 @@ export function renderProducaoMilho(
       radial-gradient(circle at 90% 100%, rgba(30, 95, 168, 0.06) 0%, transparent 40%);
     -webkit-text-size-adjust: 100%;
   }
-  .container { max-width: 1100px; margin: 0 auto; }
+  .container { max-width: 1280px; margin: 0 auto; }
 
   .header {
     background: linear-gradient(135deg, var(--azul-profundo) 0%, var(--azul-royal) 60%, var(--azul-medio) 100%);
@@ -202,15 +157,49 @@ export function renderProducaoMilho(
     border-left: 2px solid rgba(30,95,168,0.15);
     padding-left: 10px;
   }
+  .text-unit-small {
+    font-size: calc(12px * var(--fs-scale));
+    font-weight: 600;
+    color: var(--texto-suave);
+    letter-spacing: 1px;
+  }
+  .chart-desc {
+    font-size: calc(14px * var(--fs-scale));
+    color: var(--texto-suave);
+    margin-bottom: 18px;
+  }
+  .empty-state-msg {
+    text-align: center;
+    padding: 16px;
+    color: var(--texto-suave);
+    font-size: calc(15px * var(--fs-scale));
+  }
+  .badge-status {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: calc(12px * var(--fs-scale));
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .badge-status--ok {
+    background: rgba(78, 170, 106, 0.15);
+    color: var(--verde-medio);
+  }
+  .badge-status--pending {
+    background: rgba(217, 119, 6, 0.12);
+    color: var(--alerta);
+  }
+
   .brand-text-line1 {
-    font-size: 8px;
+    font-size: calc(10px * var(--fs-scale));
     font-weight: 700;
     letter-spacing: 2px;
     text-transform: uppercase;
     color: var(--azul-royal);
   }
   .brand-text-line2 {
-    font-size: 14px;
+    font-size: calc(16px * var(--fs-scale));
     font-weight: 800;
     color: var(--azul-profundo);
     letter-spacing: 0.5px;
@@ -218,7 +207,7 @@ export function renderProducaoMilho(
     margin-top: 1px;
   }
   .header-title {
-    font-size: 22px;
+    font-size: calc(26px * var(--fs-scale));
     font-weight: 700;
     line-height: 1.1;
     letter-spacing: 0.3px;
@@ -232,14 +221,14 @@ export function renderProducaoMilho(
     flex-shrink: 0;
   }
   .header-date {
-    font-size: 12px;
+    font-size: calc(14px * var(--fs-scale));
     font-weight: 600;
     line-height: 1.35;
     opacity: 0.95;
   }
   .header-date-label {
     display: block;
-    font-size: 9px;
+    font-size: calc(11px * var(--fs-scale));
     font-weight: 700;
     letter-spacing: 1.5px;
     text-transform: uppercase;
@@ -260,14 +249,14 @@ export function renderProducaoMilho(
     background: linear-gradient(90deg, var(--amarelo-milho), var(--azul-royal), var(--verde-limao), transparent);
   }
   .section-label {
-    font-size: 10px;
+    font-size: calc(12px * var(--fs-scale));
     font-weight: 700;
     letter-spacing: 2.5px;
     text-transform: uppercase;
     color: var(--azul-royal);
   }
   .section-counter {
-    font-size: 12px;
+    font-size: calc(14px * var(--fs-scale));
     color: var(--texto-suave);
     font-style: italic;
   }
@@ -297,10 +286,10 @@ export function renderProducaoMilho(
   }
   .card-total::before { background: linear-gradient(90deg, var(--amarelo-milho), var(--verde-limao)); }
   .card-anterior::before { background: linear-gradient(90deg, var(--azul-medio), var(--azul-royal)); }
-  .card-atual::before { background: linear-gradient(90deg, var(--verde-medio), var(--verde-logo)); }
+  .card-media-ha::before { background: linear-gradient(90deg, var(--verde-medio), var(--verde-logo)); }
 
   .card-label {
-    font-size: 10px;
+    font-size: calc(12px * var(--fs-scale));
     font-weight: 700;
     letter-spacing: 2px;
     text-transform: uppercase;
@@ -308,14 +297,14 @@ export function renderProducaoMilho(
     margin-bottom: 8px;
   }
   .card-title {
-    font-size: 14px;
+    font-size: calc(16px * var(--fs-scale));
     font-weight: 700;
     color: var(--azul-profundo);
     margin-bottom: 14px;
     line-height: 1.25;
   }
   .card-value-main {
-    font-size: 28px;
+    font-size: calc(32px * var(--fs-scale));
     font-weight: 800;
     color: var(--azul-profundo);
     line-height: 1.05;
@@ -323,7 +312,7 @@ export function renderProducaoMilho(
     font-variant-numeric: tabular-nums;
   }
   .card-value-unit {
-    font-size: 11px;
+    font-size: calc(13px * var(--fs-scale));
     font-weight: 600;
     color: var(--texto-suave);
     margin-left: 4px;
@@ -334,16 +323,82 @@ export function renderProducaoMilho(
     margin-top: 10px;
     padding-top: 10px;
     border-top: 1px dashed var(--borda-suave);
-    font-size: 18px;
+    font-size: calc(20px * var(--fs-scale));
     font-weight: 700;
     color: var(--verde-medio);
     font-variant-numeric: tabular-nums;
   }
   .card-cargas {
     margin-top: 8px;
-    font-size: 11px;
+    font-size: calc(13px * var(--fs-scale));
     color: var(--texto-suave);
     font-weight: 600;
+  }
+
+  .cards-grid-fazendas {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .card-fazenda {
+    padding: 16px 14px;
+    min-width: 0;
+  }
+  .card-fazenda .card-title {
+    font-size: calc(14px * var(--fs-scale));
+    margin-bottom: 10px;
+    line-height: 1.2;
+    word-break: break-word;
+  }
+  .card-fazenda::before {
+    background: linear-gradient(90deg, var(--azul-medio), var(--verde-limao));
+  }
+  .card-fazenda-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--borda-suave);
+    font-size: calc(12px * var(--fs-scale));
+  }
+  .card-fazenda-stat:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  .card-fazenda-stat--media {
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid var(--borda-suave);
+    border-bottom: none;
+  }
+  .card-fazenda-stat-label {
+    color: var(--texto-suave);
+    font-weight: 600;
+    flex-shrink: 0;
+    font-size: calc(11px * var(--fs-scale));
+  }
+  .card-fazenda-stat-value {
+    font-weight: 700;
+    color: var(--azul-profundo);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    min-width: 0;
+  }
+  .card-fazenda-pct {
+    color: var(--verde-medio);
+    font-weight: 600;
+    font-size: calc(13px * var(--fs-scale));
+  }
+  .card-fazenda-media {
+    font-size: calc(15px * var(--fs-scale));
+    color: var(--verde-medio);
+  }
+
+  @media screen and (max-width: 1024px) and (min-width: 781px) {
+    .cards-grid-fazendas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 
   .summary-row {
@@ -360,7 +415,7 @@ export function renderProducaoMilho(
     box-shadow: 0 4px 16px -8px rgba(30, 95, 168, 0.15);
   }
   .summary-block-title {
-    font-size: 11px;
+    font-size: calc(13px * var(--fs-scale));
     font-weight: 700;
     letter-spacing: 2.5px;
     text-transform: uppercase;
@@ -368,7 +423,7 @@ export function renderProducaoMilho(
     margin-bottom: 14px;
   }
   .summary-big-number {
-    font-size: 48px;
+    font-size: calc(52px * var(--fs-scale));
     font-weight: 800;
     color: var(--azul-profundo);
     line-height: 1;
@@ -377,7 +432,7 @@ export function renderProducaoMilho(
   }
   .summary-big-label {
     margin-top: 6px;
-    font-size: 12px;
+    font-size: calc(14px * var(--fs-scale));
     color: var(--texto-suave);
     font-weight: 600;
   }
@@ -398,25 +453,25 @@ export function renderProducaoMilho(
     border-left: 4px solid var(--amarelo-milho);
   }
   .filial-name {
-    font-size: 13px;
+    font-size: calc(15px * var(--fs-scale));
     font-weight: 700;
     color: var(--azul-profundo);
   }
   .filial-peso {
-    font-size: 16px;
+    font-size: calc(18px * var(--fs-scale));
     font-weight: 800;
     color: var(--azul-profundo);
     font-variant-numeric: tabular-nums;
     text-align: right;
   }
   .filial-peso small {
-    font-size: 10px;
+    font-size: calc(12px * var(--fs-scale));
     font-weight: 600;
     color: var(--texto-suave);
     margin-left: 3px;
   }
   .filial-sc {
-    font-size: 13px;
+    font-size: calc(15px * var(--fs-scale));
     font-weight: 700;
     color: var(--verde-medio);
     font-variant-numeric: tabular-nums;
@@ -424,7 +479,7 @@ export function renderProducaoMilho(
     min-width: 90px;
   }
   .filial-sc small {
-    font-size: 10px;
+    font-size: calc(12px * var(--fs-scale));
     font-weight: 600;
     color: var(--texto-suave);
     margin-left: 3px;
@@ -439,7 +494,7 @@ export function renderProducaoMilho(
     margin-bottom: 24px;
   }
   .table-title {
-    font-size: 18px;
+    font-size: calc(20px * var(--fs-scale));
     font-weight: 700;
     color: var(--azul-profundo);
     margin-bottom: 14px;
@@ -453,14 +508,14 @@ export function renderProducaoMilho(
   table.detalhe {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: calc(14px * var(--fs-scale));
   }
   table.detalhe thead th {
     background: linear-gradient(135deg, var(--azul-profundo), var(--azul-royal));
     color: white;
     padding: 11px 12px;
     text-align: left;
-    font-size: 10px;
+    font-size: calc(12px * var(--fs-scale));
     font-weight: 700;
     letter-spacing: 1.2px;
     text-transform: uppercase;
@@ -490,7 +545,7 @@ export function renderProducaoMilho(
     padding: 13px 12px;
     font-weight: 700;
     color: var(--azul-profundo);
-    font-size: 12px;
+    font-size: calc(14px * var(--fs-scale));
   }
 
   .chart-wrapper {
@@ -519,13 +574,13 @@ export function renderProducaoMilho(
     gap: 2px;
   }
   .chart-bar-variety {
-    font-size: 14px;
+    font-size: calc(16px * var(--fs-scale));
     font-weight: 800;
     color: var(--azul-profundo);
     letter-spacing: 0.3px;
   }
   .chart-bar-meta {
-    font-size: 10px;
+    font-size: calc(12px * var(--fs-scale));
     font-weight: 600;
     color: var(--texto-suave);
     text-transform: uppercase;
@@ -550,7 +605,7 @@ export function renderProducaoMilho(
     min-width: 80px;
   }
   .chart-bar-value {
-    font-size: 13px;
+    font-size: calc(15px * var(--fs-scale));
     font-weight: 800;
     color: white;
     text-shadow: 0 1px 2px rgba(0,0,0,0.25);
@@ -558,7 +613,7 @@ export function renderProducaoMilho(
     white-space: nowrap;
   }
   .chart-bar-percent {
-    font-size: 14px;
+    font-size: calc(16px * var(--fs-scale));
     font-weight: 800;
     color: var(--azul-profundo);
     text-align: right;
@@ -578,7 +633,7 @@ export function renderProducaoMilho(
     border-radius: 10px;
   }
   .chart-legend-value {
-    font-size: 20px;
+    font-size: calc(22px * var(--fs-scale));
     font-weight: 800;
     color: var(--azul-profundo);
     line-height: 1;
@@ -586,7 +641,7 @@ export function renderProducaoMilho(
   }
   .chart-legend-label {
     margin-top: 6px;
-    font-size: 9px;
+    font-size: calc(11px * var(--fs-scale));
     font-weight: 700;
     letter-spacing: 1.2px;
     text-transform: uppercase;
@@ -606,11 +661,11 @@ export function renderProducaoMilho(
     gap: 12px;
   }
   .footer-text {
-    font-size: 12px;
+    font-size: calc(14px * var(--fs-scale));
     color: var(--texto-suave);
   }
   .footer-meta-item {
-    font-size: 10px;
+    font-size: calc(12px * var(--fs-scale));
     font-weight: 600;
     letter-spacing: 1.2px;
     text-transform: uppercase;
@@ -627,13 +682,16 @@ export function renderProducaoMilho(
       gap: 10px;
     }
     .header-left { width: 100%; }
-    .header-title { font-size: 17px; }
+    .header-title { font-size: calc(24px * var(--fs-scale)); }
     .header-right { text-align: left; width: 100%; }
     .cards-grid { grid-template-columns: 1fr; gap: 12px; }
+    .cards-grid-fazendas { grid-template-columns: 1fr; gap: 12px; }
     .card { padding: 16px 18px; }
-    .card-value-main { font-size: 24px; }
+    .card-value-main { font-size: calc(30px * var(--fs-scale)); }
     .summary-row { grid-template-columns: 1fr; }
-    .summary-big-number { font-size: 40px; }
+    .summary-big-number { font-size: calc(48px * var(--fs-scale)); }
+    table.detalhe { font-size: calc(15px * var(--fs-scale)); }
+    table.detalhe thead th { font-size: calc(13px * var(--fs-scale)); }
     .filial-item { grid-template-columns: 1fr; gap: 6px; }
     .filial-peso, .filial-sc { text-align: left; }
     .table-wrapper { padding: 14px; }
@@ -645,6 +703,7 @@ export function renderProducaoMilho(
     .chart-bar-percent { text-align: left; }
     .chart-legend { grid-template-columns: repeat(2, 1fr); }
     .footer { padding: 14px 16px; }
+    .font-size-controls { margin-bottom: 12px; }
   }
 
   @media print {
@@ -653,6 +712,7 @@ export function renderProducaoMilho(
       background: white;
       background-image: none;
     }
+    .no-print { display: none !important; }
     .header { box-shadow: none; }
     .card, .summary-block, .table-wrapper, .footer { box-shadow: none; }
   }
@@ -670,13 +730,23 @@ export function renderProducaoMilho(
           <span class="brand-text-line2">FRANCIOSI</span>
         </div>
       </div>
-      <div class="header-title">Produção de <em>Milho em Grãos</em></div>
+      <div class="header-title">Produção de <em>Milho</em></div>
     </div>
     <div class="header-right">
       <span class="header-date-label">Gerado em</span>
       <span class="header-date">${generatedAt}</span>
     </div>
   </header>
+
+  <div class="font-size-controls no-print">
+    <span class="font-size-controls-label">Texto:</span>
+    <input type="radio" name="font-scale" id="fs-normal" checked>
+    <label for="fs-normal">Normal</label>
+    <input type="radio" name="font-scale" id="fs-large">
+    <label for="fs-large">Grande</label>
+    <input type="radio" name="font-scale" id="fs-xlarge">
+    <label for="fs-xlarge">Extra</label>
+  </div>
 
   <div class="section-header">
     <span class="section-label">Resumo de Pesagens</span>
@@ -688,68 +758,65 @@ export function renderProducaoMilho(
     <div class="card card-total">
       <div class="card-label">Total Geral</div>
       <div class="card-title">Soma de Peso Líquido</div>
-      <div class="card-value-main">${fmtKg(
-        data.total.kg,
-      )}<span class="card-value-unit">KG</span></div>
-      <div class="card-value-secondary">${fmtSc(
-        data.total.sc,
-      )} ${scUnitSpan}</div>
-      <div class="card-cargas">${fmtInt(data.total.cargas)} cargas no total</div>
+      <div class="card-value-main">${data.totalKg}<span class="card-value-unit">KG</span></div>
+      <div class="card-value-secondary">${data.totalSc} <span class="text-unit-small">SC 60 KG</span></div>
+      <div class="card-cargas">${data.totalCargas} no total</div>
     </div>
 
     <div class="card card-anterior">
-      <div class="card-label">Dia Anterior · ${data.diaAnterior.dateLabel}</div>
+      <div class="card-label">Dia Anterior · ${data.anteriorDataBr}</div>
       <div class="card-title">Peso Líquido</div>
-      <div class="card-value-main">${fmtKg(
-        data.diaAnterior.kg,
-      )}<span class="card-value-unit">KG</span></div>
-      <div class="card-value-secondary">${fmtSc(
-        data.diaAnterior.sc,
-      )} ${scUnitSpan}</div>
-      <div class="card-cargas">${fmtInt(data.diaAnterior.cargas)} cargas</div>
+      <div class="card-value-main">${data.anteriorKg}<span class="card-value-unit">KG</span></div>
+      <div class="card-value-secondary">${data.anteriorSc} <span class="text-unit-small">SC 60 KG</span></div>
+      <div class="card-cargas">${data.anteriorCargas}</div>
     </div>
 
-    <div class="card card-atual">
-      <div class="card-label">Dia Atual · ${data.diaAtual.dateLabel}</div>
-      <div class="card-title">Peso Líquido</div>
-      <div class="card-value-main">${fmtKg(
-        data.diaAtual.kg,
-      )}<span class="card-value-unit">KG</span></div>
-      <div class="card-value-secondary">${fmtSc(
-        data.diaAtual.sc,
-      )} ${scUnitSpan}</div>
-      <div class="card-cargas">${fmtInt(data.diaAtual.cargas)} cargas</div>
+    <div class="card card-media-ha">
+      <div class="card-label">Produtividade</div>
+      <div class="card-title">Média SC 60 / Hectare</div>
+      <div class="card-value-main">${data.mediaScHa}<span class="card-value-unit">SC/HA</span></div>
+      <div class="card-cargas">${data.mediaScHaHectares}</div>
     </div>
+  </div>
+
+  <div class="section-header">
+    <span class="section-label">Por Fazenda</span>
+    <div class="section-line"></div>
+    <span class="section-counter">área · colheita · produtividade</span>
+  </div>
+
+  <div class="cards-grid-fazendas">
+    ${data.fazendaCardsHtml}
   </div>
 
   <div class="section-header">
     <span class="section-label">Distribuição</span>
     <div class="section-line"></div>
-    <span class="section-counter">cargas e filiais</span>
+    <span class="section-counter">cargas e fazendas</span>
   </div>
 
   <div class="summary-row">
     <div class="summary-block">
       <div class="summary-block-title">Total de Cargas</div>
-      <div class="summary-big-number">${fmtInt(data.total.cargas)}</div>
+      <div class="summary-big-number">${data.qtdCargas}</div>
       <div class="summary-big-label">tickets de pesagem registrados</div>
     </div>
 
     <div class="summary-block">
-      <div class="summary-block-title">Peso Líquido por Filial</div>
+      <div class="summary-block-title">Peso Líquido por Fazenda</div>
       <div class="filial-list">
-${filiaisHtml}
+        ${data.fazendaListHtml}
       </div>
     </div>
   </div>
 
   <div class="table-wrapper">
-    <h2 class="table-title">Saldo por Talhão e Variedade</h2>
+    <h2 class="table-title">Produção por Talhão e Variedade</h2>
     <div class="table-scroll">
       <table class="detalhe">
         <thead>
           <tr>
-            <th>Filial</th>
+            <th>Fazenda</th>
             <th>Talhão</th>
             <th>Variedade</th>
             <th class="num">Cargas</th>
@@ -759,26 +826,16 @@ ${filiaisHtml}
             <th class="num">Desc. Impureza</th>
             <th class="num">SC 60 KG</th>
             <th class="num">Hectares</th>
+            <th class="num">Ha. Colhidos</th>
             <th class="num">SC / HA</th>
             <th>Finalizado</th>
           </tr>
         </thead>
         <tbody>
-${talhoesHtml}
+          ${data.talhaoTbodyHtml}
         </tbody>
         <tfoot>
-          <tr>
-            <td colspan="3">TOTAL · ${nTalhoesLabel}</td>
-            <td class="num">${fmtInt(data.talhoesTotal.cargas)}</td>
-            <td class="num">${fmtKg(data.talhoesTotal.kg)}</td>
-            <td class="num">—</td>
-            <td class="num">${fmtKg(data.talhoesTotal.descUmidade)}</td>
-            <td class="num">${fmtKg(data.talhoesTotal.descImpureza)}</td>
-            <td class="num">${fmtSc(data.talhoesTotal.sc)}</td>
-            <td class="num">${fmtInt(data.talhoesTotal.hectares)}</td>
-            <td class="num">${fmtDec2(data.talhoesTotal.scPorHa)}</td>
-            <td></td>
-          </tr>
+          ${data.talhaoTfootHtml}
         </tfoot>
       </table>
     </div>
@@ -792,42 +849,34 @@ ${talhoesHtml}
 
   <div class="chart-wrapper">
     <h2 class="table-title">Sacas de 60 KG por Variedade</h2>
-    <p style="font-size:12px;color:var(--texto-suave);margin-bottom:18px;">Soma do peso líquido convertido em sacas de 60 kg, agrupada por variedade cultivada.</p>
+    <p class="chart-desc">Soma do peso líquido convertido em sacas de 60 kg, agrupada por variedade cultivada.</p>
 
     <div class="chart-bars">
-${variedadesHtml}
+      ${data.chartBarsHtml}
     </div>
 
     <div class="chart-legend">
       <div class="chart-legend-item">
-        <div class="chart-legend-value">${fmtSc(
-          data.variedadesTotal.sc,
-        )}</div>
+        <div class="chart-legend-value">${data.chartTotalSc}</div>
         <div class="chart-legend-label">Total SC 60 KG</div>
       </div>
       <div class="chart-legend-item">
-        <div class="chart-legend-value">${fmtInt(
-          data.variedadesTotal.nVariedades,
-        )}</div>
+        <div class="chart-legend-value">${data.chartQtdVariedades}</div>
         <div class="chart-legend-label">Variedade(s)</div>
       </div>
       <div class="chart-legend-item">
-        <div class="chart-legend-value">${fmtInt(
-          data.variedadesTotal.hectares,
-        )}</div>
-        <div class="chart-legend-label">Hectares totais</div>
+        <div class="chart-legend-value">${data.chartHectaresTotal}</div>
+        <div class="chart-legend-label">Hectares colhidos</div>
       </div>
       <div class="chart-legend-item">
-        <div class="chart-legend-value">${fmtDec2(
-          data.variedadesTotal.scPorHaMedia,
-        )}</div>
+        <div class="chart-legend-value">${data.chartScHaMedia}</div>
         <div class="chart-legend-label">SC / HA (média)</div>
       </div>
     </div>
   </div>
 
   <footer class="footer">
-    <div class="footer-text"><strong>Relatório de Estoque de Milho em Grãos</strong> · Sistema UNISYSTEM · Grupo Franciosi</div>
+    <div class="footer-text"><strong>Relatório de Produção de Milho</strong> · Sistema UNISYSTEM · Grupo Franciosi</div>
     <div>
       <div class="footer-meta-item">Conversão: 1 saca = 60 kg</div>
     </div>

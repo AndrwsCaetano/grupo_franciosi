@@ -6,12 +6,20 @@ import {
 } from '@nestjs/common';
 import { DataSourcesService } from '../data-sources/data-sources.service';
 import { PermissionsResolutionService } from '../permissions/permissions-resolution.service';
-import { aggregateProducaoMilho } from './producao-milho.aggregator';
+import {
+  aggregateProducaoMilho,
+  parseProducaoMilhoDiaAnteriorStats,
+} from './producao-milho.aggregator';
 import {
   formatGeneratedAt,
   renderProducaoMilho,
 } from './producao-milho.template';
-import { findReport, REPORTS } from './reports.registry';
+import {
+  findReport,
+  PRODUCAO_MILHO_AREA_FAZENDA_QUERY,
+  PRODUCAO_MILHO_DIA_ANTERIOR_QUERY,
+  REPORTS,
+} from './reports.registry';
 
 export interface RunReportResult {
   slug: string;
@@ -49,15 +57,49 @@ export class ReportsService {
         'Você não tem permissão para acessar este relatório',
       );
     }
-    this.assertSelectOnly(report.query);
 
+    const now = new Date();
+    const generatedAt = formatGeneratedAt(now);
+
+    if (slug === 'producao-milho') {
+      this.assertSelectOnly(report.query);
+      this.assertSelectOnly(PRODUCAO_MILHO_DIA_ANTERIOR_QUERY);
+      this.assertSelectOnly(PRODUCAO_MILHO_AREA_FAZENDA_QUERY);
+
+      const [rows, diaAnteriorRows, areaFazendaRows] = await Promise.all([
+        this.dataSources.runQueryById(report.dataSourceId, report.query),
+        this.dataSources.runQueryById(
+          report.dataSourceId,
+          PRODUCAO_MILHO_DIA_ANTERIOR_QUERY,
+        ),
+        this.dataSources.runQueryById(
+          report.dataSourceId,
+          PRODUCAO_MILHO_AREA_FAZENDA_QUERY,
+        ),
+      ]);
+
+      const anteriorStats = parseProducaoMilhoDiaAnteriorStats(diaAnteriorRows);
+      const data = aggregateProducaoMilho(
+        rows,
+        anteriorStats,
+        areaFazendaRows,
+      );
+      const html = renderProducaoMilho(data, generatedAt);
+
+      return {
+        slug: report.slug,
+        name: report.name,
+        html,
+        generatedAt,
+        rowCount: rows.length,
+      };
+    }
+
+    this.assertSelectOnly(report.query);
     const rows = await this.dataSources.runQueryById(
       report.dataSourceId,
       report.query,
     );
-
-    const now = new Date();
-    const generatedAt = formatGeneratedAt(now);
     const html = this.render(slug, rows, generatedAt);
 
     return {
@@ -75,10 +117,6 @@ export class ReportsService {
     generatedAt: string,
   ): string {
     switch (slug) {
-      case 'producao-milho': {
-        const data = aggregateProducaoMilho(rows);
-        return renderProducaoMilho(data, generatedAt);
-      }
       default:
         throw new NotFoundException('Renderizador do relatório não encontrado');
     }
