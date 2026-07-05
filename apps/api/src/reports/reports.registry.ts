@@ -67,12 +67,13 @@ export const PRODUCAO_MILHO_QUERY = `SELECT f.DESCRICAO_FILIAL filial,
        ee.NR_DOCUMENTO
  ORDER BY 1, 2, 3`;
 
-export const PRODUCAO_MILHO_DIA_ANTERIOR_QUERY = `SELECT COUNT(c.SEQ_PLA_ENTRADA) qtd_carga,
-       SUM(c.PESO_LIQUIDO) peso_liquido
+export const PRODUCAO_MILHO_DIA_ANTERIOR_QUERY = `SELECT COUNT(DISTINCT c.SEQ_PLA_ENTRADA) qtd_carga,
+       SUM(vtr.SUB_TOTAL - vtr.des_umidade - vtr.des_impureza - vtr.des_avariado - vtr.des_ardido - vtr.des_outros - vtr.des_graos_verdes - vtr.des_quebrados) peso_liquido
   FROM est_entradas_rom c
   JOIN est_entradas ee ON ee.SEQ_PLA_ENTRADA = c.SEQ_PLA_ENTRADA
   JOIN EST_ENTRADAS_ITENS eei ON eei.SEQ_PLA_ENTRADA = ee.SEQ_PLA_ENTRADA
   JOIN PRODUTOS p ON p.SEQ_PLA_PRODUTO = eei.SEQ_PLA_PRODUTO
+  LEFT JOIN VINCULA_TALHAO_ROMANEIO vtr ON vtr.seq_pla_entrada = ee.seq_pla_entrada
  WHERE c.CANCELADO IS NULL
    AND p.DESCRICAO_PRODUTO = 'MILHO EM GRAOS'
    AND TRUNC(ee.DATA_ENTRADA) = TRUNC(SYSDATE) - 1`;
