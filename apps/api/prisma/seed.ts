@@ -2,7 +2,7 @@ import 'dotenv/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
-import { DEFAULT_PERMISSIONS } from '@grupo-franciosi/shared';
+import { syncPermissions } from './sync-permissions';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -14,39 +14,11 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
-  for (const p of DEFAULT_PERMISSIONS) {
-    await prisma.permission.upsert({
-      where: { code: p.code },
-      create: { code: p.code, name: p.name },
-      update: { name: p.name },
-    });
-  }
+  await syncPermissions();
 
-  const allPerms = await prisma.permission.findMany();
-  const byCode = Object.fromEntries(allPerms.map((x) => [x.code, x.id]));
-
-  const adminProfile = await prisma.profile.upsert({
+  const adminProfile = await prisma.profile.findUniqueOrThrow({
     where: { name: 'Administrador' },
-    create: { name: 'Administrador', description: 'Acesso total ao painel' },
-    update: {},
   });
-
-  for (const p of DEFAULT_PERMISSIONS) {
-    await prisma.profilePermission.upsert({
-      where: {
-        profileId_permissionId: {
-          profileId: adminProfile.id,
-          permissionId: byCode[p.code],
-        },
-      },
-      create: {
-        profileId: adminProfile.id,
-        permissionId: byCode[p.code],
-        granted: true,
-      },
-      update: { granted: true },
-    });
-  }
 
   const passwordHash = await bcrypt.hash('Admin123!', 10);
   const admin = await prisma.user.upsert({
