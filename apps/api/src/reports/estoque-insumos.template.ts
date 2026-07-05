@@ -35,107 +35,147 @@ export function renderEstoqueInsumos(
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: var(--creme); color: var(--texto);
-    min-height: 100vh; padding: 40px 24px;
+    min-height: 100vh; padding: 20px 16px;
     background-image:
       radial-gradient(circle at 10% 0%, rgba(62, 193, 200, 0.08) 0%, transparent 40%),
       radial-gradient(circle at 90% 100%, rgba(30, 95, 168, 0.06) 0%, transparent 40%);
   }
   .container { max-width: 1320px; margin: 0 auto; }
 
-  /* HEADER */
   .header {
-    position: relative;
     background: linear-gradient(135deg, var(--azul-profundo) 0%, var(--azul-royal) 60%, var(--azul-medio) 100%);
-    border-radius: 24px;
-    margin-bottom: 48px;
-    color: white; overflow: hidden;
-    box-shadow: 0 20px 60px -20px rgba(30, 74, 133, 0.5);
+    border-radius: 14px;
+    padding: 14px 22px;
+    margin-bottom: 24px;
+    color: white;
+    box-shadow: 0 10px 30px -12px rgba(30, 74, 133, 0.45);
+    max-height: 113px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
   }
-  .header-inner { padding: 48px 56px 40px; position: relative; z-index: 2; }
-  .header::before {
-    content: ''; position: absolute; top: -30%; right: -10%;
-    width: 500px; height: 500px;
-    background: radial-gradient(circle, rgba(62, 193, 200, 0.25) 0%, transparent 65%);
-    border-radius: 50%; z-index: 0;
-  }
-  .header::after {
-    content: ''; position: absolute; bottom: -50%; left: -5%;
-    width: 400px; height: 400px;
-    background: radial-gradient(circle, rgba(168, 196, 55, 0.15) 0%, transparent 60%);
-    border-radius: 50%; z-index: 0;
-  }
-  .header-top {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 36px; flex-wrap: wrap; gap: 20px;
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    flex: 1 1 auto;
   }
   .brand {
-    display: flex; align-items: center; gap: 16px;
-    background: rgba(255, 255, 255, 0.97);
-    padding: 14px 22px 14px 18px; border-radius: 14px;
-    box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.25);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.97);
+    padding: 6px 12px 6px 8px;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px -4px rgba(0,0,0,0.2);
+    flex-shrink: 0;
   }
-  .brand-logo { width: 56px; height: 56px; object-fit: contain; }
+  .brand-logo { width: 42px; height: 42px; object-fit: contain; }
   .brand-text {
-    display: flex; flex-direction: column;
-    border-left: 2px solid rgba(30, 95, 168, 0.15);
-    padding-left: 16px;
+    display: flex;
+    flex-direction: column;
+    border-left: 2px solid rgba(30,95,168,0.15);
+    padding-left: 10px;
   }
   .brand-text-line1 {
-    font-size: 10px; font-weight: 700; letter-spacing: 2.5px;
-    text-transform: uppercase; color: var(--azul-royal);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--azul-royal);
   }
   .brand-text-line2 {
-    font-size: 18px; font-weight: 800; color: var(--azul-profundo);
-    letter-spacing: 1px; margin-top: 2px;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--azul-profundo);
+    letter-spacing: 0.5px;
+    line-height: 1;
+    margin-top: 1px;
   }
-  .badge {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(10px);
-    padding: 9px 18px; border-radius: 100px;
-    font-size: 11px; font-weight: 600; letter-spacing: 1.8px;
-    text-transform: uppercase;
-    border: 1px solid rgba(255, 255, 255, 0.2); color: white;
+  .header-title {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: 0.3px;
   }
-  .badge-dot {
-    width: 7px; height: 7px;
-    background: var(--verde-limao); border-radius: 50%;
-    box-shadow: 0 0 0 4px rgba(168, 196, 55, 0.3);
-    animation: pulse 2s ease-in-out infinite;
-  }
-  @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 4px rgba(168, 196, 55, 0.3); }
-    50%      { box-shadow: 0 0 0 9px rgba(168, 196, 55, 0.05); }
-  }
-  .header h1 {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 54px; font-weight: 500; line-height: 1.05;
-    margin-bottom: 14px; letter-spacing: -0.5px;
-  }
-  .header h1 em { font-style: italic; color: var(--turquesa-claro); font-weight: 400; }
-  .header-subtitle {
-    font-size: 16px; font-weight: 300; opacity: 0.9;
-    max-width: 720px; line-height: 1.6;
-  }
-  .tag-divider {
-    width: 100%; height: 56px; display: block;
-    background-image: url('https://vps.metasafra.com.br/grupo_franciosi/tag.png');
-    background-size: cover; background-position: center; background-repeat: no-repeat;
-  }
-  .header-stats-wrapper {
-    background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, transparent 100%);
-    padding: 32px 56px 36px; position: relative; z-index: 2;
-  }
-  .header-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
-  .header-stat-value {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 44px; font-weight: 500; line-height: 1;
+  .header-title em {
+    font-style: normal;
     color: var(--turquesa-claro);
   }
-  .header-stat-label {
-    font-size: 10px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 2px; opacity: 0.85; margin-top: 8px; color: white;
+  .header-right {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .header-date {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.35;
+    opacity: 0.95;
+  }
+  .header-date-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    opacity: 0.7;
+    margin-bottom: 2px;
+  }
+
+  .cards-grid-kpi {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .card-kpi {
+    background: var(--branco);
+    border-radius: 16px;
+    padding: 20px 22px;
+    border: 1px solid var(--borda-suave);
+    box-shadow: 0 4px 16px -8px rgba(30, 95, 168, 0.15);
+    position: relative;
+    overflow: hidden;
+  }
+  .card-kpi::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+  }
+  .card-kpi-produtos::before { background: linear-gradient(90deg, var(--azul-medio), var(--azul-royal)); }
+  .card-kpi-fazendas::before { background: linear-gradient(90deg, var(--verde-logo), var(--verde-medio)); }
+  .card-kpi-grupos::before { background: linear-gradient(90deg, var(--turquesa), var(--verde-limao)); }
+  .card-kpi-saldos::before { background: linear-gradient(90deg, var(--verde-limao), var(--verde-logo)); }
+  .card-kpi .card-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--texto-suave);
+    margin-bottom: 8px;
+  }
+  .card-kpi .card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--azul-profundo);
+    margin-bottom: 14px;
+    line-height: 1.25;
+  }
+  .card-kpi .card-value-main {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--azul-profundo);
+    line-height: 1.05;
+    letter-spacing: -0.5px;
+    font-variant-numeric: tabular-nums;
   }
 
   /* SEÇÕES */
@@ -451,19 +491,28 @@ export function renderEstoqueInsumos(
     text-transform: uppercase; color: var(--texto-suave);
   }
 
-  @media (max-width: 768px) {
-    body { padding: 20px 12px; }
-    .header-inner { padding: 32px 24px 28px; }
-    .header-stats-wrapper { padding: 24px 24px 28px; }
-    .header h1 { font-size: 36px; }
-    .header-stats { grid-template-columns: repeat(2, 1fr); gap: 24px; }
-    .header-stat-value { font-size: 32px; }
+  @media (max-width: 900px) {
+    body { padding: 12px 10px; }
+    .header {
+      max-height: none;
+      padding: 12px 14px;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .header-left { width: 100%; }
+    .header-title { font-size: 24px; }
+    .header-right { text-align: left; width: 100%; }
+    .cards-grid-kpi { grid-template-columns: repeat(2, 1fr); gap: 12px; }
     .cards-grid { grid-template-columns: 1fr; }
-    .tag-divider { height: 40px; }
-    .brand { padding: 10px 16px 10px 14px; }
-    .brand-logo { width: 44px; height: 44px; }
     .table-wrapper { padding: 20px 16px; }
     .table-title { font-size: 22px; }
+  }
+
+  @media (max-width: 560px) {
+    .cards-grid-kpi { grid-template-columns: 1fr; gap: 12px; }
+    .card-kpi { padding: 16px 18px; }
+    .card-kpi .card-value-main { font-size: 30px; }
   }
 
   /* PDF (Gotenberg emulatedMediaType: print) — layout compacto landscape */
@@ -479,20 +528,36 @@ export function renderEstoqueInsumos(
       font-size: 9px;
     }
     .container { max-width: none; width: 100%; }
-    .header { margin-bottom: 10px; border-radius: 12px; box-shadow: none; page-break-inside: avoid; break-inside: avoid-page; }
-    .header-inner { padding: 14px 18px 10px; }
-    .header-top { margin-bottom: 12px; gap: 10px; }
-    .brand { padding: 8px 12px; box-shadow: none; }
-    .brand-logo { width: 40px; height: 40px; }
-    .brand-text-line2 { font-size: 14px; }
-    .badge { padding: 5px 10px; font-size: 9px; }
-    .header h1 { font-size: 22px; margin-bottom: 6px; line-height: 1.1; }
-    .header-subtitle { font-size: 9px !important; line-height: 1.35; max-width: none; margin-top: 4px !important; opacity: 1 !important; }
-    .tag-divider { height: 28px; }
-    .header-stats-wrapper { padding: 10px 18px 12px; }
-    .header-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-    .header-stat-value { font-size: 20px; }
-    .header-stat-label { font-size: 8px; margin-top: 4px; }
+    .header {
+      margin-bottom: 10px;
+      border-radius: 12px;
+      box-shadow: none;
+      max-height: none;
+      padding: 10px 14px;
+      page-break-inside: avoid;
+      break-inside: avoid-page;
+    }
+    .brand { padding: 6px 10px; box-shadow: none; }
+    .brand-logo { width: 36px; height: 36px; }
+    .brand-text-line2 { font-size: 12px; }
+    .header-title { font-size: 18px; }
+    .header-date { font-size: 11px; }
+    .header-date-label { font-size: 8px; }
+    .cards-grid-kpi {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+      page-break-inside: avoid;
+      break-inside: avoid-page;
+    }
+    .card-kpi {
+      padding: 10px 12px;
+      border-radius: 10px;
+      box-shadow: none;
+    }
+    .card-kpi .card-label { font-size: 8px; margin-bottom: 4px; }
+    .card-kpi .card-title { font-size: 10px; margin-bottom: 6px; }
+    .card-kpi .card-value-main { font-size: 18px; }
     .section-header { margin: 10px 0 8px; gap: 8px; page-break-after: avoid; }
     .section-label { font-size: 9px; letter-spacing: 2px; }
     .section-counter { font-size: 11px; }
@@ -539,53 +604,50 @@ export function renderEstoqueInsumos(
 <div class="container">
 
   <header class="header">
-    <div class="header-inner">
-      <div class="header-top">
-        <div class="brand">
-          <img src="https://vps.metasafra.com.br/grupo_franciosi/logo4.jpg" alt="Grupo Franciosi" class="brand-logo">
-          <div class="brand-text">
-            <span class="brand-text-line1">Grupo</span>
-            <span class="brand-text-line2">FRANCIOSI</span>
-          </div>
-        </div>
-        <div class="badge">
-          <span class="badge-dot"></span>
-          Estoque Atualizado
+    <div class="header-left">
+      <div class="brand">
+        <img src="https://vps.metasafra.com.br/grupo_franciosi/logo4.jpg" alt="Grupo Franciosi" class="brand-logo">
+        <div class="brand-text">
+          <span class="brand-text-line1">Grupo</span>
+          <span class="brand-text-line2">FRANCIOSI</span>
         </div>
       </div>
-
-      <h1>Estoque de <em>Insumos</em><br>por Fazenda</h1>
-      <p class="header-subtitle">
-        Posição consolidada do estoque de defensivos, fertilizantes e sementes, organizada em tabela pivô com saldo por fazenda.
-      </p>
-      <p class="header-subtitle" style="margin-top:12px;font-size:14px;opacity:0.85">
-        Gerado em ${generatedAt} · Oracle UNISYSTEM · Grupos: Defensivos, Fertilizantes, Sementes
-      </p>
+      <div class="header-title">Estoque de <em>Insumos</em></div>
     </div>
-
-    <div class="tag-divider" role="img" aria-label="Faixa decorativa Grupo Franciosi"></div>
-
-    <div class="header-stats-wrapper">
-      <div class="header-stats">
-        <div>
-          <div class="header-stat-value">${data.qtdProdutos}</div>
-          <div class="header-stat-label">Produtos cadastrados</div>
-        </div>
-        <div>
-          <div class="header-stat-value">${data.qtdFazendas}</div>
-          <div class="header-stat-label">Fazendas</div>
-        </div>
-        <div>
-          <div class="header-stat-value">${data.qtdGrupos}</div>
-          <div class="header-stat-label">Grupos</div>
-        </div>
-        <div>
-          <div class="header-stat-value">${data.qtdSaldos}</div>
-          <div class="header-stat-label">Registros de saldo</div>
-        </div>
-      </div>
+    <div class="header-right">
+      <span class="header-date-label">Gerado em</span>
+      <span class="header-date">${generatedAt}</span>
     </div>
   </header>
+
+  <div class="section-header">
+    <span class="section-label">Resumo Geral</span>
+    <div class="section-line"></div>
+    <span class="section-counter">${data.gruposLabel}</span>
+  </div>
+
+  <div class="cards-grid-kpi">
+    <div class="card-kpi card-kpi-produtos">
+      <div class="card-label">Catálogo</div>
+      <div class="card-title">Produtos Cadastrados</div>
+      <div class="card-value-main">${data.qtdProdutos}</div>
+    </div>
+    <div class="card-kpi card-kpi-fazendas">
+      <div class="card-label">Operação</div>
+      <div class="card-title">Fazendas</div>
+      <div class="card-value-main">${data.qtdFazendas}</div>
+    </div>
+    <div class="card-kpi card-kpi-grupos">
+      <div class="card-label">Classificação</div>
+      <div class="card-title">Grupos</div>
+      <div class="card-value-main">${data.qtdGrupos}</div>
+    </div>
+    <div class="card-kpi card-kpi-saldos">
+      <div class="card-label">Movimentação</div>
+      <div class="card-title">Registros de Saldo</div>
+      <div class="card-value-main">${data.qtdSaldos}</div>
+    </div>
+  </div>
 
   <div class="section-header">
     <span class="section-label">Resumo por Grupo</span>

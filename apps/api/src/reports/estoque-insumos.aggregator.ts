@@ -174,9 +174,10 @@ function aggregateRows(rows: RawRow[]): {
     }
     saldosCount++;
 
-    const fazenda =
-      String(pickCol(row, 'fazenda') ?? '— Sem fazenda').trim() ||
-      '— Sem fazenda';
+    const fazenda = String(pickCol(row, 'fazenda') ?? '').trim();
+    if (!fazenda) {
+      continue;
+    }
     fazendasSet.add(fazenda);
 
     const codgrupo = String(pickCol(row, 'codgrupo') ?? '').trim();
