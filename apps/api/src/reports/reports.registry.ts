@@ -28,7 +28,7 @@ export const PRODUCAO_MILHO_QUERY = `SELECT f.DESCRICAO_FILIAL filial,
        t.NUMERO_TALHAO talhao,
        uv.DESC_VARIEDADE variedade,
        count(c.SEQ_PLA_ENTRADA) qtd_carga,
-       sum(c.PESO_LIQUIDO) peso_liquido,
+       sum(vtr.SUB_TOTAL - vtr.des_umidade - vtr.des_impureza - vtr.des_avariado - vtr.des_ardido - vtr.des_outros - vtr.des_graos_verdes - vtr.des_quebrados) peso_liquido,
        sum(c.DES_UMIDADE) desc_umidade,
        AVG(CASE
              WHEN c.PER_UMIDADE < 14 THEN 14
@@ -38,9 +38,11 @@ export const PRODUCAO_MILHO_QUERY = `SELECT f.DESCRICAO_FILIAL filial,
        SUM(C.DES_AVARIADO) desc_avariado,
        sum(c.PESO_LIQUIDO) / 60 QTD_SC60,
        TS.QTDE_HA HECTARES,
-       ROUND(sum(c.PESO_LIQUIDO) / ((SELECT sum(cc.area_apontada) FROM APONT_AREA_TAL_OS cc WHERE cc.seq_pla_variedade = ts.SEQ_PLA_VARIEDADE AND cc.seq_pla_talhao = ts.SEQ_PLA_TALHAO AND cc.seq_pla_fazenda = t.SEQ_PLA_FAZENDA)) / 60, 2) QTD_SC_HECTARES,
+       ROUND(sum(vtr.SUB_TOTAL - vtr.des_umidade - vtr.des_impureza - vtr.des_avariado - vtr.des_ardido - vtr.des_outros - vtr.des_graos_verdes - vtr.des_quebrados) / ((SELECT sum(cc.area_apontada) FROM APONT_AREA_TAL_OS cc WHERE cc.seq_pla_variedade = ts.SEQ_PLA_VARIEDADE AND cc.seq_pla_talhao = ts.SEQ_PLA_TALHAO AND cc.seq_pla_fazenda = t.SEQ_PLA_FAZENDA)) / 60, 2) QTD_SC_HECTARES,
        (SELECT sum(cc.area_apontada) FROM APONT_AREA_TAL_OS cc WHERE cc.seq_pla_variedade = ts.SEQ_PLA_VARIEDADE AND cc.seq_pla_talhao = ts.SEQ_PLA_TALHAO AND cc.seq_pla_fazenda = t.SEQ_PLA_FAZENDA) hectares_colhidos,
        TS.FINALIZADO,
+       ee.NR_DOCUMENTO,
+       c.TIKET_BALANCA,
        ts.SEQ_PLA_VARIEDADE,
        ts.SEQ_PLA_TALHAO,
        t.SEQ_PLA_FAZENDA
@@ -60,7 +62,9 @@ export const PRODUCAO_MILHO_QUERY = `SELECT f.DESCRICAO_FILIAL filial,
    AND p.DESCRICAO_PRODUTO = 'MILHO EM GRAOS'
  GROUP BY f.DESCRICAO_FILIAL, t.NUMERO_TALHAO, uv.DESC_VARIEDADE, TS.FINALIZADO, TS.QTDE_HA, f2.DESC_FAZENDA, ts.SEQ_PLA_VARIEDADE,
        ts.SEQ_PLA_TALHAO,
-       t.SEQ_PLA_FAZENDA
+       t.SEQ_PLA_FAZENDA,
+       c.TIKET_BALANCA,
+       ee.NR_DOCUMENTO
  ORDER BY 1, 2, 3`;
 
 export const PRODUCAO_MILHO_DIA_ANTERIOR_QUERY = `SELECT COUNT(c.SEQ_PLA_ENTRADA) qtd_carga,
