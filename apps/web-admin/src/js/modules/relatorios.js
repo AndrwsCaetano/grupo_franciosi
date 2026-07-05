@@ -3,9 +3,18 @@ import { apiFetch, userHasPermission } from "../auth/http.js";
 
 const DEFAULT_SLUG = "producao-milho";
 
-function slugFromUrl() {
+export function slugFromUrl() {
   const params = new URLSearchParams(window.location.search);
   return params.get("slug")?.trim() || DEFAULT_SLUG;
+}
+
+function reportMetaFromList(reports, slug) {
+  return reports.find((r) => r.slug === slug) || null;
+}
+
+function syncPageTitle(name) {
+  const title = name ? `${name} | Relatórios | Agrigestão` : "Relatórios | Agrigestão";
+  document.title = title;
 }
 
 export function registerRelatoriosAlpine() {
@@ -22,36 +31,43 @@ export function registerRelatoriosAlpine() {
 
     async init() {
       this.canExport = userHasPermission("reports.export");
-      const wantedSlug = slugFromUrl();
+      const slug = slugFromUrl();
       try {
         this.reports = await apiFetch("/reports");
       } catch {
         this.reports = [];
       }
-      this.selected =
-        this.reports.find((r) => r.slug === wantedSlug) ||
-        this.reports[0] ||
-        null;
-      if (this.selected) {
-        await this.run();
-      }
+      const meta = reportMetaFromList(this.reports, slug);
+      this.selected = meta || { slug, name: slug };
+      syncPageTitle(meta?.name);
+      await this.run();
     },
 
     async run() {
-      if (!this.selected) {
+      const slug = slugFromUrl();
+      if (!slug) {
         this.runError = "Nenhum relatório disponível para o seu perfil.";
         return;
       }
+      const meta = reportMetaFromList(this.reports, slug);
+      this.selected = { slug, name: meta?.name || this.selected?.name || slug };
+      syncPageTitle(this.selected.name);
+
       this.running = true;
       this.runError = "";
+      this.html = "";
       try {
         const res = await apiFetch(
-          `/reports/${encodeURIComponent(this.selected.slug)}/run`,
+          `/reports/${encodeURIComponent(slug)}/run`,
           { method: "POST" },
         );
         this.html = res.html || "";
         this.generatedAt = res.generatedAt || "";
         this.rowCount = typeof res.rowCount === "number" ? res.rowCount : null;
+        if (res.name) {
+          this.selected = { slug: res.slug || slug, name: res.name };
+          syncPageTitle(res.name);
+        }
       } catch (e) {
         this.runError = e.message || "Erro ao gerar o relatório";
       } finally {

@@ -328,22 +328,22 @@
             <div class="overflow-hidden transform translate" :class="(selected === 'Relatorios') ? 'block' :'hidden'">
               <ul :class="sidebarToggle ? 'lg:hidden' : 'flex'" class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
                 <li x-show="gf.can('reports.producao-milho')">
-                  <a href="relatorios.html" class="menu-dropdown-item group" :class="page === 'relatorios' ? 'menu-dropdown-item-active' : 'menu-dropdown-item-inactive'">
+                  <a href="relatorios.html?slug=producao-milho" class="menu-dropdown-item group" :class="page === 'relatorios' && reportSlug === 'producao-milho' ? 'menu-dropdown-item-active' : 'menu-dropdown-item-inactive'">
                     Produção de Milho em Grãos
                   </a>
                 </li>
                 <li x-show="gf.can('reports.saldo-soja')">
-                  <a href="relatorios.html?slug=saldo-soja" class="menu-dropdown-item group">
+                  <a href="relatorios.html?slug=saldo-soja" class="menu-dropdown-item group" :class="page === 'relatorios' && reportSlug === 'saldo-soja' ? 'menu-dropdown-item-active' : 'menu-dropdown-item-inactive'">
                     Saldo de Soja em Grãos
                   </a>
                 </li>
                 <li x-show="gf.can('reports.estoque-insumos')">
-                  <a href="relatorios.html?slug=estoque-insumos" class="menu-dropdown-item group">
+                  <a href="relatorios.html?slug=estoque-insumos" class="menu-dropdown-item group" :class="page === 'relatorios' && reportSlug === 'estoque-insumos' ? 'menu-dropdown-item-active' : 'menu-dropdown-item-inactive'">
                     Estoque de Insumos
                   </a>
                 </li>
                 <li x-show="gf.can('reports.implantacao-erp')">
-                  <a href="relatorios.html?slug=implantacao-erp" class="menu-dropdown-item group">
+                  <a href="relatorios.html?slug=implantacao-erp" class="menu-dropdown-item group" :class="page === 'relatorios' && reportSlug === 'implantacao-erp' ? 'menu-dropdown-item-active' : 'menu-dropdown-item-inactive'">
                     Implantação ERP COMPASS
                   </a>
                 </li>
