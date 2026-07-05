@@ -6,6 +6,10 @@ import {
 } from '@nestjs/common';
 import { DataSourcesService } from '../data-sources/data-sources.service';
 import { PermissionsResolutionService } from '../permissions/permissions-resolution.service';
+import { aggregateEstoqueInsumos } from './estoque-insumos.aggregator';
+import { renderEstoqueInsumos } from './estoque-insumos.template';
+import { aggregateImplantacaoErp } from './implantacao-erp.aggregator';
+import { renderImplantacaoErp } from './implantacao-erp.template';
 import {
   aggregateProducaoMilho,
   parseProducaoMilhoDiaAnteriorStats,
@@ -14,11 +18,17 @@ import {
   formatGeneratedAt,
   renderProducaoMilho,
 } from './producao-milho.template';
+import { aggregateSaldoSoja } from './saldo-soja.aggregator';
+import { renderSaldoSoja } from './saldo-soja.template';
 import {
+  ESTOQUE_INSUMOS_QUERY,
   findReport,
+  IMPLANTACAO_ERP_QUERY,
   PRODUCAO_MILHO_AREA_FAZENDA_QUERY,
   PRODUCAO_MILHO_DIA_ANTERIOR_QUERY,
   REPORTS,
+  SALDO_SOJA_CONTRATOS_QUERY,
+  SALDO_SOJA_ESTOQUE_QUERY,
 } from './reports.registry';
 
 export interface RunReportResult {
@@ -85,6 +95,71 @@ export class ReportsService {
         areaFazendaRows,
       );
       const html = renderProducaoMilho(data, generatedAt);
+
+      return {
+        slug: report.slug,
+        name: report.name,
+        html,
+        generatedAt,
+        rowCount: rows.length,
+      };
+    }
+
+    if (slug === 'saldo-soja') {
+      this.assertSelectOnly(SALDO_SOJA_ESTOQUE_QUERY);
+      this.assertSelectOnly(SALDO_SOJA_CONTRATOS_QUERY);
+
+      const [estoqueRows, contratoRows] = await Promise.all([
+        this.dataSources.runQueryById(
+          report.dataSourceId,
+          SALDO_SOJA_ESTOQUE_QUERY,
+        ),
+        this.dataSources.runQueryById(
+          report.dataSourceId,
+          SALDO_SOJA_CONTRATOS_QUERY,
+        ),
+      ]);
+
+      const data = aggregateSaldoSoja(estoqueRows, contratoRows);
+      const html = renderSaldoSoja(data, generatedAt);
+
+      return {
+        slug: report.slug,
+        name: report.name,
+        html,
+        generatedAt,
+        rowCount: estoqueRows.length,
+      };
+    }
+
+    if (slug === 'estoque-insumos') {
+      this.assertSelectOnly(ESTOQUE_INSUMOS_QUERY);
+
+      const rows = await this.dataSources.runQueryById(
+        report.dataSourceId,
+        ESTOQUE_INSUMOS_QUERY,
+      );
+      const data = aggregateEstoqueInsumos(rows);
+      const html = renderEstoqueInsumos(data, generatedAt);
+
+      return {
+        slug: report.slug,
+        name: report.name,
+        html,
+        generatedAt,
+        rowCount: rows.length,
+      };
+    }
+
+    if (slug === 'implantacao-erp') {
+      this.assertSelectOnly(IMPLANTACAO_ERP_QUERY);
+
+      const rows = await this.dataSources.runQueryById(
+        report.dataSourceId,
+        IMPLANTACAO_ERP_QUERY,
+      );
+      const data = aggregateImplantacaoErp(rows);
+      const html = renderImplantacaoErp(data, generatedAt);
 
       return {
         slug: report.slug,

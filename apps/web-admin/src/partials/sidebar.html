@@ -332,6 +332,21 @@
                     Produção de Milho em Grãos
                   </a>
                 </li>
+                <li x-show="gf.can('reports.saldo-soja')">
+                  <a href="relatorios.html?slug=saldo-soja" class="menu-dropdown-item group">
+                    Saldo de Soja em Grãos
+                  </a>
+                </li>
+                <li x-show="gf.can('reports.estoque-insumos')">
+                  <a href="relatorios.html?slug=estoque-insumos" class="menu-dropdown-item group">
+                    Estoque de Insumos
+                  </a>
+                </li>
+                <li x-show="gf.can('reports.implantacao-erp')">
+                  <a href="relatorios.html?slug=implantacao-erp" class="menu-dropdown-item group">
+                    Implantação ERP COMPASS
+                  </a>
+                </li>
               </ul>
             </div>
           </li>

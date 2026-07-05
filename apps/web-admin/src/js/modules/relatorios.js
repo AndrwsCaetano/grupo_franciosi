@@ -1,14 +1,17 @@
 import Alpine from "alpinejs";
 import { apiFetch, userHasPermission } from "../auth/http.js";
 
-const REPORT = {
-  slug: "producao-milho",
-  name: "Produção de Milho em Grãos",
-};
+const DEFAULT_SLUG = "producao-milho";
+
+function slugFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("slug")?.trim() || DEFAULT_SLUG;
+}
 
 export function registerRelatoriosAlpine() {
   Alpine.data("relatoriosPage", () => ({
-    selected: REPORT,
+    reports: [],
+    selected: null,
     canExport: false,
 
     html: "",
@@ -19,10 +22,26 @@ export function registerRelatoriosAlpine() {
 
     async init() {
       this.canExport = userHasPermission("reports.export");
-      await this.run();
+      const wantedSlug = slugFromUrl();
+      try {
+        this.reports = await apiFetch("/reports");
+      } catch {
+        this.reports = [];
+      }
+      this.selected =
+        this.reports.find((r) => r.slug === wantedSlug) ||
+        this.reports[0] ||
+        null;
+      if (this.selected) {
+        await this.run();
+      }
     },
 
     async run() {
+      if (!this.selected) {
+        this.runError = "Nenhum relatório disponível para o seu perfil.";
+        return;
+      }
       this.running = true;
       this.runError = "";
       try {
@@ -41,7 +60,7 @@ export function registerRelatoriosAlpine() {
     },
 
     exportHtml() {
-      if (!this.html) {
+      if (!this.html || !this.selected) {
         return;
       }
       const blob = new Blob([this.html], { type: "text/html;charset=utf-8" });

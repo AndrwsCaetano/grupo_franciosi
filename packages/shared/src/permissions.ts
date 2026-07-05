@@ -27,6 +27,9 @@ export const DEFAULT_PERMISSIONS = [
   // a linha "reports.<slug>" correspondente para que ele apareça nas
   // liberações de acesso e na montagem de perfil.
   { code: "reports.producao-milho", name: "Relatório: Produção de Milho em Grãos" },
+  { code: "reports.saldo-soja", name: "Relatório: Saldo de Soja em Grãos" },
+  { code: "reports.estoque-insumos", name: "Relatório: Estoque de Insumos" },
+  { code: "reports.implantacao-erp", name: "Relatório: Implantação ERP COMPASS" },
 ] as const;
 
 export type PermissionCode = (typeof DEFAULT_PERMISSIONS)[number]["code"];
