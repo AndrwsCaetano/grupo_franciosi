@@ -30,6 +30,12 @@ export const DEFAULT_PERMISSIONS = [
   { code: "reports.saldo-soja", name: "Relatório: Saldo de Soja em Grãos" },
   { code: "reports.estoque-insumos", name: "Relatório: Estoque de Insumos" },
   { code: "reports.implantacao-erp", name: "Relatório: Implantação ERP COMPASS" },
+  // ---- Posto de Combustível (novo módulo) ----
+  { code: "fuel_station.read", name: "Posto de Combustível: consultar dados" },
+  { code: "fuel_station.write", name: "Posto de Combustível: administrar cadastros" },
+  { code: "fuel_station.operate", name: "Posto de Combustível: apontar abastecimentos" },
+  { code: "fuel_station.validate", name: "Posto de Combustível: validar imports do ERP" },
+  { code: "fuel_station.transfers", name: "Posto de Combustível: solicitar/aceitar transferências" },
 ] as const;
 
 export type PermissionCode = (typeof DEFAULT_PERMISSIONS)[number]["code"];

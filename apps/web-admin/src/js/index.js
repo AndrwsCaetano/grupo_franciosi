@@ -22,6 +22,13 @@ import { registerMeAlpine } from "./modules/me.js";
 import { registerConnectionsAlpine } from "./modules/connections.js";
 import { registerSupersetAlpine } from "./modules/superset.js";
 import { registerRelatoriosAlpine } from "./modules/relatorios.js";
+import { registerFuelPointsAlpine } from "./modules/fuel-points.js";
+import { registerFuelProductsAlpine } from "./modules/fuel-products.js";
+import { registerFuelMachineryAlpine } from "./modules/fuel-machinery.js";
+import { registerFuelErpImportsAlpine } from "./modules/fuel-erp-imports.js";
+import { registerFuelDispensingsAlpine } from "./modules/fuel-dispensings.js";
+import { registerFuelTransfersAlpine } from "./modules/fuel-transfers.js";
+import { registerFuelPointAccessAlpine } from "./modules/fuel-point-access.js";
 
 runAuthRouteGuard();
 
@@ -58,6 +65,13 @@ registerMeAlpine();
 registerConnectionsAlpine();
 registerSupersetAlpine();
 registerRelatoriosAlpine();
+registerFuelPointsAlpine();
+registerFuelProductsAlpine();
+registerFuelMachineryAlpine();
+registerFuelErpImportsAlpine();
+registerFuelDispensingsAlpine();
+registerFuelTransfersAlpine();
+registerFuelPointAccessAlpine();
 window.Alpine = Alpine;
 Alpine.start();
 

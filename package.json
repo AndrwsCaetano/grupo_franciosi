@@ -8,6 +8,7 @@
     "dev:api": "npm run start:dev -w api",
     "dev:admin": "npm run start -w web-admin",
     "dev:pwa": "npm run dev -w pwa",
+    "dev:posto": "npm run start -w posto",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f postgres",

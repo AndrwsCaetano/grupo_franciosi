@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
+    />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Imports ERP (validação) | Grupo Franciosi</title>
+  </head>
+  <body
+    x-data="{ page: 'fuel-erp-imports', pageName: 'Imports ERP (validação)', 'loaded': true, 'darkMode': false, 'stickyMenu': false, 'sidebarToggle': false, 'scrollTop': false }"
+    x-init="
+         darkMode = JSON.parse(localStorage.getItem('darkMode'));
+         $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(value)))"
+    :class="{'dark bg-gray-900': darkMode === true}"
+  >
+    <include src="./partials/preloader.html"></include>
+
+    <div class="flex h-screen overflow-hidden">
+      <include src="./partials/sidebar.html"></include>
+
+      <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto">
+        <include src="./partials/overlay.html" />
+        <include src="./partials/header.html" />
+
+        <main>
+          <div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6" x-data="fuelErpImportsPage()" x-init="init()">
+            <include src="./partials/breadcrumb.html" />
+
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+              <div class="flex flex-col gap-3 mb-4 md:flex-row md:items-center md:justify-between">
+                <div class="flex flex-wrap items-center gap-2">
+                  <select x-model="kind" @change="load()" class="dark:bg-dark-900 h-11 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                    <option value="">Todos os tipos</option>
+                    <option value="EQUIPAMENTO">Equipamento</option>
+                    <option value="NF_ENTRADA">NF de entrada</option>
+                  </select>
+                  <select x-model="statusFilter" @change="load()" class="dark:bg-dark-900 h-11 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                    <option value="PENDENTE">Pendentes</option>
+                    <option value="APROVADO">Aprovados</option>
+                    <option value="REJEITADO">Rejeitados</option>
+                    <option value="">Todos</option>
+                  </select>
+                  <button type="button" @click="load()" class="inline-flex h-11 items-center rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]">
+                    Atualizar
+                  </button>
+                  <button type="button" x-show="canValidate" @click="pull()" :disabled="pulling" class="inline-flex h-11 items-center rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-70">
+                    <span x-show="!pulling">Buscar do ERP</span>
+                    <span x-show="pulling" x-cloak>Buscando…</span>
+                  </button>
+                </div>
+              </div>
+
+              <div x-show="error" x-cloak class="mb-3 rounded-lg border border-error-500/40 bg-error-500/10 px-4 py-3 text-sm text-error-700 dark:text-error-400" x-text="error"></div>
+
+              <div class="overflow-x-auto">
+                <table class="min-w-full text-left text-sm">
+                  <thead class="border-b border-gray-200 text-xs uppercase text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                    <tr>
+                      <th class="px-4 py-3">Importado em</th>
+                      <th class="px-4 py-3">Entidade</th>
+                      <th class="px-4 py-3">Referência</th>
+                      <th class="px-4 py-3">Status</th>
+                      <th class="px-4 py-3">Detalhes</th>
+                      <th class="px-4 py-3 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                    <template x-if="loading">
+                      <tr><td colspan="6" class="px-4 py-6 text-center text-gray-500">Carregando…</td></tr>
+                    </template>
+                    <template x-if="!loading && items.length === 0">
+                      <tr><td colspan="6" class="px-4 py-6 text-center text-gray-500">Nenhum import encontrado.</td></tr>
+                    </template>
+                    <template x-for="i in items" :key="i.id">
+                      <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.03]">
+                        <td class="px-4 py-3 text-gray-500 text-xs" x-text="formatDateTime(i.createdAt)"></td>
+                        <td class="px-4 py-3 font-medium text-gray-800 dark:text-white/90" x-text="kindLabel(i.kind)"></td>
+                        <td class="px-4 py-3 text-gray-700 dark:text-gray-300" x-text="referenceLabel(i)"></td>
+                        <td class="px-4 py-3">
+                          <span :class="statusBadgeClass(i.status)" class="inline-flex rounded-full px-2 py-0.5 text-xs" x-text="statusLabel(i.status)"></span>
+                        </td>
+                        <td class="px-4 py-3">
+                          <button type="button" @click="openDetails(i)" class="rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50 dark:border-gray-700 dark:hover:bg-white/[0.05]">Ver</button>
+                        </td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                          <template x-if="i.status === 'PENDENTE'">
+                            <span>
+                              <button type="button" x-show="canValidate" @click="validate(i, true)" class="mr-2 rounded-md bg-success-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-600">Aprovar</button>
+                              <button type="button" x-show="canValidate" @click="validate(i, false)" class="rounded-md border border-error-500/40 px-3 py-1.5 text-xs font-medium text-error-600 hover:bg-error-500/10">Rejeitar</button>
+                            </span>
+                          </template>
+                          <template x-if="i.status !== 'PENDENTE'">
+                            <span class="text-xs text-gray-400">—</span>
+                          </template>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">Total: <span x-text="total"></span></p>
+            </div>
+
+            <!-- Modal detalhes -->
+            <div x-show="detailsItem" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-900/50 p-4" @keydown.escape.window="closeDetails()">
+              <div class="w-full max-w-2xl rounded-2xl bg-white p-6 dark:bg-gray-900 max-h-[85vh] overflow-y-auto" @click.outside="closeDetails()">
+                <div class="mb-4 flex items-center justify-between">
+                  <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Detalhes do import</h3>
+                  <button type="button" @click="closeDetails()" class="text-gray-500 hover:text-gray-700">×</button>
+                </div>
+                <pre class="whitespace-pre-wrap rounded-lg bg-gray-50 p-4 text-xs text-gray-700 dark:bg-white/[0.03] dark:text-gray-300" x-text="detailsJson"></pre>
+                <div class="mt-4 flex justify-end">
+                  <button type="button" @click="closeDetails()" class="h-10 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]">Fechar</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Modal confirmar rejeição -->
+            <div x-show="rejectingItem" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-900/50 p-4">
+              <div class="w-full max-w-md rounded-2xl bg-white p-6 dark:bg-gray-900">
+                <h3 class="mb-2 text-lg font-semibold text-gray-800 dark:text-white/90">Rejeitar import</h3>
+                <div x-show="validateError" x-cloak class="mb-3 rounded-lg border border-error-500/40 bg-error-500/10 px-4 py-2 text-sm text-error-700 dark:text-error-400" x-text="validateError"></div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Confirma a rejeição deste registro importado do ERP?</p>
+                <div class="mt-4 flex justify-end gap-2">
+                  <button type="button" @click="cancelReject()" class="h-10 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-white/80 dark:hover:bg-white/[0.05]">Cancelar</button>
+                  <button type="button" @click="confirmReject()" class="h-10 rounded-lg bg-error-500 px-5 text-sm font-medium text-white hover:bg-error-600">Rejeitar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

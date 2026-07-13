@@ -63,6 +63,8 @@ module.exports = {
           "/fuelings",
           "/reports",
           "/uploads",
+          "/fuel-station",
+          "/integrations",
         ],
         target: "http://localhost:4000",
         changeOrigin: true,

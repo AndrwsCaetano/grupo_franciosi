@@ -352,6 +352,82 @@
           </li>
           <!-- Fim Relatórios -->
 
+          <!-- Menu Posto de combustível -->
+          <li x-show="gf.canAny('fuel_station.read','fuel_station.write','fuel_station.validate','fuel_station.transfers')" x-cloak>
+            <a
+              href="#"
+              @click.prevent="selected = (selected === 'PostoCombustivel' ? '':'PostoCombustivel')"
+              class="menu-item group"
+              :class="(selected === 'PostoCombustivel') || (page === 'fuel-points' || page === 'fuel-products' || page === 'fuel-machinery' || page === 'fuel-erp-imports' || page === 'fuel-dispensings' || page === 'fuel-transfers' || page === 'fuel-point-access') ? 'menu-item-active' : 'menu-item-inactive'"
+            >
+              <svg
+                :class="(selected === 'PostoCombustivel') || (page === 'fuel-points' || page === 'fuel-products' || page === 'fuel-machinery' || page === 'fuel-erp-imports' || page === 'fuel-dispensings' || page === 'fuel-transfers' || page === 'fuel-point-access') ? 'menu-item-icon-active' : 'menu-item-icon-inactive'"
+                width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  fill-rule="evenodd"
+                  clip-rule="evenodd"
+                  d="M6.5 2.75C6.5 2.33579 6.83579 2 7.25 2H13.25C13.6642 2 14 2.33579 14 2.75C14 3.16421 13.6642 3.5 13.25 3.5H13V5.31333L15.0784 7.39171C15.6706 7.98393 16 8.78194 16 9.61421V19.75C16 20.9926 14.9926 22 13.75 22H5.75C4.50736 22 3.5 20.9926 3.5 19.75V9.61421C3.5 8.78194 3.82945 7.98393 4.42157 7.39171L6.5 5.31333V3.5H6.25C5.83579 3.5 5.5 3.16421 5.5 2.75C5.5 2.33579 5.83579 2 6.25 2H6.5V2.75ZM8 3.5V5.62132C8 5.82024 7.92098 6.01101 7.78033 6.15165L5.48223 8.44975C5.17462 8.75736 5 9.17669 5 9.61421V13.25H14.5V9.61421C14.5 9.17669 14.3254 8.75736 14.0178 8.44975L11.7197 6.15165C11.579 6.01101 11.5 5.82024 11.5 5.62132V3.5H8ZM5 14.75V19.75C5 20.1642 5.33579 20.5 5.75 20.5H13.75C14.1642 20.5 14.5 20.1642 14.5 19.75V14.75H5Z"
+                  fill=""
+                />
+                <path
+                  d="M18.5 8.75C18.5 8.33579 18.8358 8 19.25 8C19.6642 8 20 8.33579 20 8.75V17.25C20 17.8023 19.5523 18.25 19 18.25C18.4477 18.25 18 17.8023 18 17.25V11.5H17.75C17.3358 11.5 17 11.1642 17 10.75C17 10.3358 17.3358 10 17.75 10H18.5V8.75Z"
+                  fill=""
+                />
+              </svg>
+              <span class="menu-item-text" :class="sidebarToggle ? 'lg:hidden' : ''">
+                Posto de combustível
+              </span>
+              <svg
+                class="menu-item-arrow"
+                :class="[(selected === 'PostoCombustivel') ? 'menu-item-arrow-active' : 'menu-item-arrow-inactive', sidebarToggle ? 'lg:hidden' : '' ]"
+                width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M4.79175 7.39584L10.0001 12.6042L15.2084 7.39585" stroke="" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </a>
+            <div class="overflow-hidden transform translate" :class="(selected === 'PostoCombustivel') ? 'block' :'hidden'">
+              <ul :class="sidebarToggle ? 'lg:hidden' : 'flex'" class="flex flex-col gap-1 mt-2 menu-dropdown pl-9">
+                <li x-show="gf.can('fuel_station.read')">
+                  <a href="fuel-points.html" class="menu-dropdown-item group" :class="page === 'fuel-points' ? 'menu-dropdown-item-active' : 'menu-dropdown-item-inactive'">
+                    Pontos de abastecimento
+                  </a>
+                </li>
+                <li x-show="gf.can('fuel_station.read')">
+                  <a href="fuel-products.html" class="menu-dropdown-item group" :class="page === 'fuel-products' ? 'menu-dropdown-item-active' : 'menu-dropdown-item-inactive'">
+                    Produtos / estoque
+                  </a>
+                </li>
+                <li x-show="gf.can('fuel_station.read')">
+                  <a href="fuel-machinery.html" class="menu-dropdown-item group" :class="page === 'fuel-machinery' ? 'menu-dropdown-item-active' : 'menu-dropdown-item-inactive'">
+                    Maquinário
+                  </a>
+                </li>
+                <li x-show="gf.can('fuel_station.validate')">
+                  <a href="fuel-erp-imports.html" class="menu-dropdown-item group" :class="page === 'fuel-erp-imports' ? 'menu-dropdown-item-active' : 'menu-dropdown-item-inactive'">
+                    Imports ERP (validação)
+                  </a>
+                </li>
+                <li x-show="gf.can('fuel_station.read')">
+                  <a href="fuel-dispensings.html" class="menu-dropdown-item group" :class="page === 'fuel-dispensings' ? 'menu-dropdown-item-active' : 'menu-dropdown-item-inactive'">
+                    Apontamentos
+                  </a>
+                </li>
+                <li x-show="gf.can('fuel_station.transfers')">
+                  <a href="fuel-transfers.html" class="menu-dropdown-item group" :class="page === 'fuel-transfers' ? 'menu-dropdown-item-active' : 'menu-dropdown-item-inactive'">
+                    Transferências
+                  </a>
+                </li>
+                <li x-show="gf.can('fuel_station.write')">
+                  <a href="fuel-point-access.html" class="menu-dropdown-item group" :class="page === 'fuel-point-access' ? 'menu-dropdown-item-active' : 'menu-dropdown-item-inactive'">
+                    Liberação usuários × pontos
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </li>
+          <!-- Fim Posto de combustível -->
+
           <!-- Menu Administração -->
           <li x-show="gf.canAny('users.read','profiles.read','datasources.read')" x-cloak>
             <a

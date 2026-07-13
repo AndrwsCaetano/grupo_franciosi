@@ -32,6 +32,13 @@ model User {
   refreshTokens       RefreshToken[]
   drivers             Driver[]
   fuelingsCreated     VehicleFueling[] @relation("FuelingCreatedBy")
+
+  // ---- Posto de Combustível ----
+  fuelPointAccess       UserFuelPointAccess[]
+  fuelDispensings       FuelDispensing[]     @relation("FuelDispensingOperator")
+  fuelTransfersCreated  FuelTransfer[]       @relation("FuelTransferCreatedBy")
+  fuelTransfersAccepted FuelTransfer[]       @relation("FuelTransferAcceptedBy")
+  fuelErpImportsValidated FuelErpImport[]    @relation("FuelErpImportValidatedBy")
 }
 
 model Profile {
@@ -288,4 +295,271 @@ model VehicleFueling {
   @@index([vehicleId])
   @@index([fuelDate])
   @@index([createdAt])
+}
+
+// =====================================================================
+// MÓDULO: POSTO DE COMBUSTÍVEL (frota interna - novo, isolado)
+// Não confundir com VehicleFueling (abastecimento externo em posto de rua).
+// Aqui modelamos o posto/comboio próprio, seus estoques, equipamentos
+// (máquinas agrícolas / veículos), apontamentos operacionais,
+// transferências entre pontos e imports do ERP Compass.
+// =====================================================================
+
+enum FuelPointType {
+  POSTO
+  COMBOIO
+}
+
+enum MachineryStatus {
+  ATIVO
+  MANUTENCAO
+  INATIVO
+}
+
+enum FuelSyncStatus {
+  PENDENTE
+  SINCRONIZADO
+  ERRO
+}
+
+enum FuelTransferStatus {
+  PENDENTE
+  ACEITA
+  RECUSADA
+}
+
+enum FuelStockMovementType {
+  ABASTECIMENTO
+  TRANSFERENCIA_SAIDA
+  TRANSFERENCIA_ENTRADA
+  NF_ENTRADA
+}
+
+enum FuelErpImportKind {
+  EQUIPAMENTO
+  NF_ENTRADA
+}
+
+enum FuelErpImportStatus {
+  PENDENTE
+  APROVADO
+  REJEITADO
+}
+
+/// Catálogo de produtos de combustível/aditivo (Diesel S10, S500, Arla 32...).
+model FuelProduct {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  /// Unidade padrão (litros, kg...). Guardado como texto por flexibilidade.
+  unit      String   @default("L")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stocks       FuelStock[]
+  dispensings  FuelDispensing[]
+  transfers    FuelTransfer[]
+  movements    FuelStockMovement[]
+  machineries  Machinery[]
+}
+
+/// Ponto de abastecimento: posto fixo ou comboio (caminhão-tanque).
+model FuelPoint {
+  id                String        @id @default(cuid())
+  type              FuelPointType
+  name              String        @unique
+  /// Capacidade máxima somando todos os compartimentos (litros).
+  maxCapacityLiters Int
+  active            Boolean       @default(true)
+  /// Preenchido quando um usuário com fuel_station.validate homologa o ponto
+  /// vindo do ERP. Ponto não validado não aparece no bootstrap do operador.
+  validatedAt       DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  stocks         FuelStock[]
+  dispensings    FuelDispensing[]
+  movements      FuelStockMovement[]
+  transfersOut   FuelTransfer[]         @relation("FuelTransferOrigin")
+  transfersIn    FuelTransfer[]         @relation("FuelTransferDest")
+  userAccess     UserFuelPointAccess[]
+}
+
+/// Estoque atual de um produto em um ponto. Chave única (pointId, productId).
+model FuelStock {
+  id                String   @id @default(cuid())
+  pointId           String
+  productId         String
+  /// Quantidade em litros (2 casas).
+  quantityLiters    Decimal  @db.Decimal(12, 2) @default(0)
+  /// Reserva mínima para alerta. 0 = sem alerta.
+  minReserveLiters  Decimal  @db.Decimal(12, 2) @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  point   FuelPoint    @relation(fields: [pointId], references: [id], onDelete: Cascade)
+  product FuelProduct  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([pointId, productId])
+  @@index([pointId])
+  @@index([productId])
+}
+
+/// Máquina/equipamento que abastece no posto (trator, caminhão, colheitadeira...).
+/// Chega do ERP e precisa ser validado antes de ficar disponível para apontamento.
+model Machinery {
+  id                String           @id @default(cuid())
+  tag               String           @unique
+  name              String
+  /// Categoria / tipo livre (ex: "Trator", "Caminhão", "Colheitadeira").
+  category          String
+  defaultProductId  String?
+  /// Última leitura do horímetro conhecida (horas, 2 casas).
+  hourMeter         Decimal          @db.Decimal(12, 2) @default(0)
+  /// Última leitura do odômetro conhecida (km inteiros).
+  odometerKm        Int              @default(0)
+  status            MachineryStatus  @default(ATIVO)
+  /// Identificador vindo do ERP Compass (quando importado).
+  erpExternalId     String?          @unique
+  /// Preenchido pelo validador ao aprovar o import do ERP.
+  validatedAt       DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  defaultProduct FuelProduct?     @relation(fields: [defaultProductId], references: [id], onDelete: SetNull)
+  dispensings    FuelDispensing[]
+
+  @@index([status])
+}
+
+/// Apontamento (abastecimento operacional) feito pelo operador do posto/comboio.
+/// Modelagem separada de VehicleFueling: aqui a transação debita estoque
+/// do ponto e atualiza os medidores da máquina.
+model FuelDispensing {
+  id                 String          @id @default(cuid())
+  machineryId        String
+  pointId            String
+  productId          String
+  liters             Decimal         @db.Decimal(12, 2)
+  hourMeterReported  Decimal?        @db.Decimal(12, 2)
+  kmReported         Int?
+  operatorUserId     String
+  /// Preenchido pelo app do operador para deduplicar reenvios offline.
+  offlineClientId    String?         @unique
+  syncStatus         FuelSyncStatus  @default(PENDENTE)
+  errorMsg           String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  machinery    Machinery   @relation(fields: [machineryId], references: [id], onDelete: Restrict)
+  point        FuelPoint   @relation(fields: [pointId], references: [id], onDelete: Restrict)
+  product      FuelProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+  operator     User        @relation("FuelDispensingOperator", fields: [operatorUserId], references: [id], onDelete: Restrict)
+
+  @@index([machineryId])
+  @@index([pointId])
+  @@index([productId])
+  @@index([createdAt])
+  @@index([syncStatus])
+}
+
+/// Transferência de combustível entre pontos (ex: posto -> comboio).
+/// Regra de negócio: debita origem ao criar; só credita destino ao aceitar;
+/// se recusada, restaura o saldo da origem.
+model FuelTransfer {
+  id               String              @id @default(cuid())
+  originPointId    String
+  destPointId      String
+  productId        String
+  liters           Decimal             @db.Decimal(12, 2)
+  status           FuelTransferStatus  @default(PENDENTE)
+  observation      String?
+  createdByUserId  String
+  acceptedByUserId String?
+  acceptedAt       DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  originPoint FuelPoint   @relation("FuelTransferOrigin", fields: [originPointId], references: [id], onDelete: Restrict)
+  destPoint   FuelPoint   @relation("FuelTransferDest", fields: [destPointId], references: [id], onDelete: Restrict)
+  product     FuelProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+  createdBy   User        @relation("FuelTransferCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  acceptedBy  User?       @relation("FuelTransferAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([originPointId])
+  @@index([destPointId])
+  @@index([productId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// Log imutável de todo o movimento de estoque de um produto em um ponto.
+/// deltaLiters é positivo (entrada) ou negativo (saída).
+/// referenceId aponta para FuelDispensing/FuelTransfer/FuelErpImport conforme "type".
+model FuelStockMovement {
+  id           String                 @id @default(cuid())
+  pointId      String
+  productId    String
+  deltaLiters  Decimal                @db.Decimal(12, 2)
+  type         FuelStockMovementType
+  referenceId  String?
+  createdAt    DateTime               @default(now())
+
+  point   FuelPoint    @relation(fields: [pointId], references: [id], onDelete: Cascade)
+  product FuelProduct  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([pointId])
+  @@index([productId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+/// Fila de dados vindos do ERP (Compass) aguardando validação humana.
+/// payload guarda o registro bruto (equipamento a cadastrar ou NF de entrada).
+model FuelErpImport {
+  id                String               @id @default(cuid())
+  kind              FuelErpImportKind
+  payload           Json
+  status            FuelErpImportStatus  @default(PENDENTE)
+  validatedByUserId String?
+  validatedAt       DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  validatedBy User? @relation("FuelErpImportValidatedBy", fields: [validatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([kind])
+  @@index([status])
+}
+
+/// Log auditável das tentativas de sincronização com o ERP (push/pull).
+model FuelSyncLog {
+  id            String   @id @default(cuid())
+  /// Categoria do registro sincronizado: APONTAMENTO, TRANSFERENCIA ou ERP (import).
+  tipo          String
+  referenceId   String
+  status        String
+  attempts      Int      @default(1)
+  lastAttemptAt DateTime?
+  erpResponse   Json?
+  createdAt     DateTime @default(now())
+
+  @@index([tipo, referenceId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// Vínculo usuário <-> ponto de abastecimento que ele opera.
+/// Bootstrap do operador só retorna dados dos pontos aqui listados.
+model UserFuelPointAccess {
+  userId     String
+  pointId    String
+  assignedAt DateTime @default(now())
+
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  point FuelPoint @relation(fields: [pointId], references: [id], onDelete: Cascade)
+
+  @@id([userId, pointId])
+  @@index([userId])
+  @@index([pointId])
 }

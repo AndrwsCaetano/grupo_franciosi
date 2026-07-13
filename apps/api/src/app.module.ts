@@ -9,6 +9,7 @@ import { DashboardsModule } from './dashboards/dashboards.module';
 import { DataSourcesModule } from './data-sources/data-sources.module';
 import { DriversModule } from './drivers/drivers.module';
 import { FuelingsModule } from './fuelings/fuelings.module';
+import { FuelStationModule } from './fuel-station/fuel-station.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProfilesModule } from './profiles/profiles.module';
@@ -33,6 +34,7 @@ import { DriverModule } from './driver/driver.module';
     VehiclesModule,
     DriversModule,
     FuelingsModule,
+    FuelStationModule,
     ReportsModule,
   ],
   controllers: [AppController],
