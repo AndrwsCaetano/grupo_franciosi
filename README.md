@@ -135,6 +135,54 @@ docker compose ... up -d --build`. A migration `20260713170000_fuel_station`
 não altera nenhuma tabela existente (só cria novas), então pode ser mantida no
 banco mesmo após rollback do código.
 
+#### Troubleshooting: opções `fuel_station.*` não aparecem em Perfis
+
+A tela **Administração → Perfis** monta o catálogo de opções via
+`GET /permissions`, que devolve o que está na tabela `Permission` do banco.
+Se `fuel_station.*` não aparecem, é sempre um destes três cenários:
+
+1. **A imagem da API na VPS é antiga** (não foi rebuildada após `git pull`).
+   Verifique o commit do binário rodando:
+   ```bash
+   docker compose -f docker-compose.prod.yml --env-file .env.production \
+     exec api sh -c 'cat /app/packages/shared/dist/permissions.js | grep fuel_station || echo NAO_ENCONTROU'
+   ```
+   Se aparecer `NAO_ENCONTROU`, a imagem foi construída antes da atualização
+   do pacote `@grupo-franciosi/shared`. Forçe o rebuild:
+   ```bash
+   docker compose -f docker-compose.prod.yml --env-file .env.production \
+     build --no-cache api web
+   docker compose -f docker-compose.prod.yml --env-file .env.production \
+     up -d api web
+   ```
+
+2. **`sync-permissions.ts` não rodou / falhou.** O entrypoint roda o script
+   em toda subida e imprime `[sync-permissions] persistidas no DB: N ·
+   fuel_station.*: X` no log. Cheque:
+   ```bash
+   docker compose -f docker-compose.prod.yml --env-file .env.production \
+     logs api --tail 200 | grep sync-permissions
+   ```
+   Rode manualmente e veja o resumo:
+   ```bash
+   docker compose -f docker-compose.prod.yml --env-file .env.production \
+     exec api npx tsx prisma/sync-permissions.ts
+   ```
+   Mesmo que o `packages/shared/dist` esteja defasado dentro da imagem, o
+   próprio `sync-permissions.ts` mantém um *fallback local* para
+   `fuel_station.*` — então essa rota também injeta as opções.
+
+3. **Cache do navegador no painel.** Após o sync, faça hard-reload (Ctrl+F5)
+   na tela **Perfis**. A lista vem da API a cada abertura do modal, mas o
+   bundle JS ainda pode estar em cache.
+
+Confirmação direta no banco:
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production \
+  exec postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "SELECT code, name FROM \"Permission\" WHERE code LIKE 'fuel_station.%' ORDER BY code;"
+```
+
 ### Alvos ARM (Raspberry Pi, Graviton, etc.)
 
 A imagem só baixa o Instant Client em `linux/amd64`. Em ARM a API sobe em
