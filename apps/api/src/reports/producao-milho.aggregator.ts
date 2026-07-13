@@ -198,7 +198,9 @@ export function aggregateProducaoMilho(
 
   const byFazenda = new Map<string, number>();
   const byFazendaSc60 = new Map<string, number>();
-  const byFazendaHaColhidosByTalhao = new Map<string, Map<string, number>>();
+  // Sum hectares_colhidos across all talhão+variedade rows (SQL is already
+  // per variedade; MAX-by-talhão undercounted shared talhões with 2+ varieties).
+  const byFazendaHaColhidos = new Map<string, number>();
   const talhoes: TalhaoRow[] = [];
   const byVariedade = new Map<string, VariedadeAgg>();
 
@@ -229,13 +231,10 @@ export function aggregateProducaoMilho(
     byFazendaSc60.set(fazenda, (byFazendaSc60.get(fazenda) ?? 0) + sc60);
 
     if (talhao !== '—' && hectaresColhidos > 0) {
-      const haMap =
-        byFazendaHaColhidosByTalhao.get(fazenda) ?? new Map<string, number>();
-      const prevHa = haMap.get(talhao) ?? 0;
-      if (hectaresColhidos > prevHa) {
-        haMap.set(talhao, hectaresColhidos);
-      }
-      byFazendaHaColhidosByTalhao.set(fazenda, haMap);
+      byFazendaHaColhidos.set(
+        fazenda,
+        (byFazendaHaColhidos.get(fazenda) ?? 0) + hectaresColhidos,
+      );
     }
 
     talhoes.push({
@@ -291,10 +290,7 @@ export function aggregateProducaoMilho(
       : fazendasCardsSorted
           .map((nome) => {
             const haTotal = areaByFazenda.get(nome) ?? 0;
-            const haMap = byFazendaHaColhidosByTalhao.get(nome);
-            const haColhidos = haMap
-              ? [...haMap.values()].reduce((a, b) => a + b, 0)
-              : 0;
+            const haColhidos = byFazendaHaColhidos.get(nome) ?? 0;
             const sc60Fazenda = byFazendaSc60.get(nome) ?? 0;
             const pctColheita =
               haTotal > 0
