@@ -1,4 +1,4 @@
-# New Agrigestão — Ponto de Abastecimento (Expo)
+# Abastecimento New (Expo)
 
 App Expo (React Native) offline-first para operadores do ponto de abastecimento
 interno. Sincroniza cadastros com a API NestJS e enfileira abastecimentos e
@@ -214,16 +214,16 @@ Store). Os arquivos `eas.json`, `app.json` (com `owner`, `android.package`,
 
 ### Perfis definidos em `eas.json`
 
-| Perfil | Distribuição | Artefato Android | `EXPO_PUBLIC_API_URL` |
-|--------|--------------|------------------|-----------------------|
-| `development` | interna (Dev Client) | APK | `https://grupofranciosi.agrigestao.tech` |
-| `preview`     | interna (sideload)   | APK release       | `https://grupofranciosi.agrigestao.tech` |
-| `production`  | store                | AAB (`versionCode` auto) | `https://grupofranciosi.agrigestao.tech` |
+| Perfil | Distribuição | Artefato Android |
+|--------|--------------|------------------|
+| `development` | interna (Dev Client) | APK |
+| `preview`     | interna (sideload)   | APK release |
+| `production`  | store                | AAB (`versionCode` auto) |
 
-Para apontar para outra API, sobrescreva `EXPO_PUBLIC_API_URL` na hora do
-build (`--env EXPO_PUBLIC_API_URL=...`) ou edite o campo `env` do perfil em
-`eas.json`. O operador também pode trocar em runtime em **Config → API →
-URL base**.
+O APK é **genérico (multi-projeto)**: nenhum perfil embute URL de cliente.
+O operador define o servidor pela engrenagem na tela de login (ou em
+**Config → API → Trocar servidor**). Se quiser embutir um default num build
+específico, passe `EXPO_PUBLIC_API_URL` na hora do build.
 
 ### Pré-requisitos
 
@@ -249,15 +249,16 @@ Todos os comandos rodam **de dentro** de `apps/posto/`:
 ```bash
 cd apps/posto
 
-# (uma única vez) linka o projeto ao serviço EAS – já foi feito no repo:
-# npx eas-cli init --non-interactive --force
+# (uma única vez) linka o projeto ao serviço EAS — necessário após o rebrand,
+# pois o slug mudou para "postonewagrigestao" e o projectId antigo foi removido:
+npx eas-cli init
 
 # dispara o build na nuvem
 npx eas-cli build -p android --profile preview --non-interactive
 ```
 
 Ao final, o EAS imprime uma URL do tipo
-`https://expo.dev/accounts/suporte.ti.oilema/projects/posto/builds/<id>` —
+`https://expo.dev/accounts/<owner>/projects/postonewagrigestao/builds/<id>` —
 abra a página do build e clique em **Install** (QR code) ou baixe o `.apk`
 diretamente. Para acompanhar builds em andamento:
 
@@ -310,7 +311,8 @@ imediato, e possivel gerar o `.apk` localmente na maquina Windows (sem Docker).
 cd d:\PROJETOS\grupo_franciosi\apps\posto
 
 # 1. Gera a pasta android/ nativa (Expo prebuild)
-$env:EXPO_PUBLIC_API_URL="https://grupofranciosi.agrigestao.tech"
+#    (sem EXPO_PUBLIC_API_URL: o APK é genérico; o servidor é configurado
+#    pela engrenagem na tela de login)
 $env:CI="1"
 npx expo prebuild --platform android --clean --no-install
 
@@ -318,7 +320,6 @@ npx expo prebuild --platform android --clean --no-install
 #    EXPO_NO_METRO_WORKSPACE_ROOT resolve o "Unable to resolve module"
 #    de Metro em monorepo npm workspaces.
 cd android
-$env:EXPO_PUBLIC_API_URL="https://grupofranciosi.agrigestao.tech"
 $env:NODE_ENV="production"
 $env:EXPO_NO_METRO_WORKSPACE_ROOT="1"
 $env:GRADLE_OPTS="-Xmx4g -Dfile.encoding=UTF-8"
@@ -327,7 +328,7 @@ $env:GRADLE_OPTS="-Xmx4g -Dfile.encoding=UTF-8"
 # 3. O APK final fica em:
 #    apps/posto/android/app/build/outputs/apk/release/app-release.apk
 # Copia opcional para dist/:
-Copy-Item .\app\build\outputs\apk\release\app-release.apk ..\dist\posto-preview.apk -Force
+Copy-Item .\app\build\outputs\apk\release\app-release.apk ..\dist\postonewagrigestao.apk -Force
 ```
 
 ### Notas importantes
@@ -345,11 +346,9 @@ Copy-Item .\app\build\outputs\apk\release\app-release.apk ..\dist\posto-preview.
   `android/gradle.properties`): builda so ABIs de dispositivos reais. Isso
   encurta o build de ~30 min para ~4 min e evita conflito de lock de
   arquivo do CMake x86 no Windows.
-- **`splashscreen_logo`**: como `app.json` nao define uma imagem de splash,
-  criamos um vector drawable placeholder em
-  `android/app/src/main/res/drawable/splashscreen_logo.xml`. Se voce refizer
-  `expo prebuild --clean`, o arquivo precisa ser recriado (ou defina uma
-  imagem real em `assets/` e reference no `app.json`).
+- **Splash**: o `app.json` define `splash.image` (`assets/splash-logo.png`),
+  entao o `expo prebuild` gera o drawable automaticamente — nao e mais
+  necessario nenhum placeholder manual.
 - **`@expo/vector-icons` fixado em `14.0.4`**: versoes 14.1+ puxam
   `expo-font@57` (SDK 55) que quebra o build do SDK 52.
 - Assinatura: o APK e assinado com o keystore de debug (`android/app/debug.keystore`).
@@ -360,5 +359,5 @@ Copy-Item .\app\build\outputs\apk\release\app-release.apk ..\dist\posto-preview.
 ### Instalar no dispositivo
 
 ```powershell
-adb install -r apps\posto\dist\posto-preview.apk
+adb install -r apps\posto\dist\postonewagrigestao.apk
 ```

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -69,11 +70,12 @@ export default function LoginScreen() {
         </Pressable>
 
         <View style={styles.brandWrap}>
-          <View style={styles.logoBadge}>
-            <Text style={styles.logoText}>NA</Text>
-          </View>
-          <Text style={styles.title}>New Agrigestão</Text>
-          <Text style={styles.subtitle}>Ponto de Abastecimento</Text>
+          <Image
+            source={require('../assets/splash-logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.title}>Abastecimento New</Text>
         </View>
 
         <View style={styles.form}>
@@ -144,18 +146,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   brandWrap: { alignItems: 'center', marginBottom: 32 },
-  logoBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  logoText: { color: '#fff', fontSize: 24, fontWeight: '700' },
+  logo: { width: 96, height: 96, marginBottom: 12 },
   title: { fontSize: 20, fontWeight: '700', color: colors.text },
-  subtitle: { fontSize: 14, color: colors.textMuted, marginTop: 4 },
   form: { gap: 14 },
   error: { color: colors.danger, fontSize: 13 },
   hint: { color: colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: 8 },
