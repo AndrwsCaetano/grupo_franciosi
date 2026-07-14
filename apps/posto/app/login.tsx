@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -10,6 +10,11 @@ import {
   Text,
   View,
 } from 'react-native';
+import {
+  clearSavedCredentials,
+  getSavedCredentials,
+  saveCredentials,
+} from '../src/api/credentials';
 import { Button } from '../src/components/Button';
 import { Field } from '../src/components/Field';
 import { Screen } from '../src/components/Screen';
@@ -31,10 +36,30 @@ export default function LoginScreen() {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [serverModal, setServerModal] = useState(false);
   const [host, setHost] = useState(serverHost());
+
+  useEffect(() => {
+    (async () => {
+      const saved = await getSavedCredentials();
+      if (saved) {
+        setEmail(saved.email);
+        setPassword(saved.password);
+        setRemember(true);
+      }
+    })();
+  }, []);
+
+  async function toggleRemember() {
+    const next = !remember;
+    setRemember(next);
+    if (!next) {
+      await clearSavedCredentials();
+    }
+  }
 
   async function submit() {
     setError(null);
@@ -45,6 +70,11 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await signIn(email.trim(), password);
+      if (remember) {
+        await saveCredentials(email.trim(), password);
+      } else {
+        await clearSavedCredentials();
+      }
       router.replace('/bootstrap');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Falha ao entrar';
@@ -95,6 +125,21 @@ export default function LoginScreen() {
             onChangeText={setPassword}
             placeholder="••••••••"
           />
+          <Pressable
+            onPress={toggleRemember}
+            style={styles.rememberRow}
+            hitSlop={8}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: remember }}
+            accessibilityLabel="Lembrar e-mail e senha"
+          >
+            <Ionicons
+              name={remember ? 'checkbox' : 'square-outline'}
+              size={22}
+              color={remember ? colors.primary : colors.textMuted}
+            />
+            <Text style={styles.rememberLabel}>Lembrar e-mail e senha</Text>
+          </Pressable>
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <Button
             title="Entrar"
@@ -121,6 +166,11 @@ export default function LoginScreen() {
         onServerSwitched={() => {
           setHost(serverHost());
           setError(null);
+          // switchServer limpa credenciais salvas: contas de um servidor
+          // não valem em outro.
+          setEmail('');
+          setPassword('');
+          setRemember(true);
         }}
       />
     </Screen>
@@ -149,6 +199,8 @@ const styles = StyleSheet.create({
   logo: { width: 96, height: 96, marginBottom: 12 },
   title: { fontSize: 20, fontWeight: '700', color: colors.text },
   form: { gap: 14 },
+  rememberRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rememberLabel: { color: colors.text, fontSize: 14 },
   error: { color: colors.danger, fontSize: 13 },
   hint: { color: colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: 8 },
 });

@@ -6,7 +6,14 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import { AppState } from 'react-native';
 import * as authApi from '../api/auth';
+import {
+  clearSessionStart,
+  ensureSessionStart,
+  isSessionExpired,
+  markSessionStart,
+} from '../api/session';
 import { clearTokens, getAccessToken } from '../api/tokens';
 
 export interface AuthUser {
@@ -47,11 +54,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const signOut = useCallback(async () => {
+    // Apenas encerra a sessão (tokens + estado do usuário). Nunca apaga o
+    // SQLite nem a fila de sync: apontamentos offline não podem ser perdidos.
+    await clearTokens();
+    await clearSessionStart();
+    setUser(null);
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
         const token = await getAccessToken();
         if (token) {
+          if (await isSessionExpired()) {
+            await clearTokens();
+            await clearSessionStart();
+            return;
+          }
+          await ensureSessionStart();
           await refreshMe();
         }
       } finally {
@@ -60,9 +81,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, [refreshMe]);
 
+  // Ao voltar para o primeiro plano, encerra a sessão se as 12h expiraram.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      void (async () => {
+        if (await isSessionExpired()) {
+          await signOut();
+        }
+      })();
+    });
+    return () => sub.remove();
+  }, [signOut]);
+
   const signIn = useCallback(
     async (email: string, password: string) => {
       const result = await authApi.login(email, password);
+      await markSessionStart();
       if (result.user) {
         setUser({
           id: result.user.id,
@@ -74,11 +109,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     [refreshMe],
   );
-
-  const signOut = useCallback(async () => {
-    await clearTokens();
-    setUser(null);
-  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({

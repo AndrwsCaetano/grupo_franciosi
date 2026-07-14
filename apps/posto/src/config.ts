@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearSavedCredentials } from './api/credentials';
+import { clearSessionStart } from './api/session';
 import { clearTokens } from './api/tokens';
 import { wipeAllLocalData } from './db';
 
@@ -99,12 +101,14 @@ export async function testApiConnection(
 }
 
 /**
- * Troca de servidor com limpeza total: tokens, cache SQLite (incluindo fila
- * de sync e apontamentos locais) e ponto da sessão. Dados de um servidor
- * nunca podem vazar para outro.
+ * Troca de servidor com limpeza total: tokens, credenciais salvas, cache
+ * SQLite (incluindo fila de sync e apontamentos locais) e ponto da sessão.
+ * Dados de um servidor nunca podem vazar para outro.
  */
 export async function switchServer(url: string): Promise<void> {
   await clearTokens();
+  await clearSavedCredentials();
+  await clearSessionStart();
   await wipeAllLocalData();
   await AsyncStorage.removeItem(KEY_SESSION_POINT);
   await setApiBaseUrl(url);
