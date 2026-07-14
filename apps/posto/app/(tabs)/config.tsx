@@ -6,13 +6,9 @@ import { fetchBootstrap } from '../../src/api/fuelStation';
 import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { Chip } from '../../src/components/Chip';
-import { Field } from '../../src/components/Field';
 import { Screen } from '../../src/components/Screen';
-import {
-  getApiBaseUrl,
-  getDefaultApiBaseUrl,
-  setApiBaseUrl,
-} from '../../src/config';
+import { ServerConfigModal } from '../../src/components/ServerConfigModal';
+import { getApiBaseUrl } from '../../src/config';
 import { useAuth } from '../../src/context/AuthContext';
 import { useSession } from '../../src/context/SessionContext';
 import { useSync } from '../../src/context/SyncContext';
@@ -28,25 +24,18 @@ export default function ConfigScreen() {
   const session = useSession();
   const sync = useSync();
 
-  const [apiUrl, setApiUrlState] = useState(getApiBaseUrl());
   const [points, setPoints] = useState<FuelPoint[]>([]);
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [serverModal, setServerModal] = useState(false);
 
   useEffect(() => {
-    setApiUrlState(getApiBaseUrl());
     void listPoints().then(setPoints);
   }, []);
 
-  async function saveApiUrl() {
-    setSaving(true);
-    setMessage(null);
-    try {
-      await setApiBaseUrl(apiUrl);
-      setMessage('URL atualizada.');
-    } finally {
-      setSaving(false);
-    }
+  async function onServerSwitched() {
+    await signOut();
+    await session.setPointId(null);
+    router.replace('/login');
   }
 
   async function resync() {
@@ -143,20 +132,13 @@ export default function ConfigScreen() {
 
       <Card style={{ marginTop: 12 }}>
         <Text style={styles.sectionTitle}>API</Text>
-        <Field
-          label="URL base"
-          value={apiUrl}
-          onChangeText={setApiUrlState}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          placeholder={getDefaultApiBaseUrl()}
-        />
+        <Text style={styles.helper}>
+          Servidor: <Text style={styles.strong}>{getApiBaseUrl()}</Text>
+        </Text>
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
           <Button
-            title="Salvar URL"
-            onPress={saveApiUrl}
-            loading={saving}
+            title="Trocar servidor"
+            onPress={() => setServerModal(true)}
             variant="secondary"
           />
           <Button title="Ressincronizar" onPress={resync} disabled={!sync.online} />
@@ -178,6 +160,12 @@ export default function ConfigScreen() {
           {Constants.expoConfig?.sdkVersion ?? '—'}
         </Text>
       </Card>
+
+      <ServerConfigModal
+        visible={serverModal}
+        onClose={() => setServerModal(false)}
+        onServerSwitched={onServerSwitched}
+      />
     </Screen>
   );
 }

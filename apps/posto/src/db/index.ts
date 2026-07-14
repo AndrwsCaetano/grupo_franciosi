@@ -119,6 +119,24 @@ export async function resetLocalCache(): Promise<void> {
   `);
 }
 
+/**
+ * Apaga TODOS os dados locais (cache, fila de sync, apontamentos locais e meta).
+ * Usado ao trocar de servidor: dados de um servidor não podem vazar para outro.
+ */
+export async function wipeAllLocalData(): Promise<void> {
+  const db = await getDb();
+  await db.execAsync(`
+    DELETE FROM points;
+    DELETE FROM products;
+    DELETE FROM stocks;
+    DELETE FROM machinery;
+    DELETE FROM transfers;
+    DELETE FROM dispensings_local;
+    DELETE FROM sync_queue;
+    DELETE FROM meta;
+  `);
+}
+
 export async function getMeta(key: string): Promise<string | null> {
   const db = await getDb();
   const row = await db.getFirstAsync<{ value: string | null }>(
