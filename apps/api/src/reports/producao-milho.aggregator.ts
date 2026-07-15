@@ -217,10 +217,12 @@ export function aggregateProducaoMilho(
     const percUmidade = toNum(pickCol(row, 'perc_umidade'));
     const desUmidade = toNum(pickCol(row, 'desc_umidade'));
     const desImpureza = toNum(pickCol(row, 'desc_impureza'));
-    const sc60 = toNum(pickCol(row, 'qtd_sc60')) || peso / KG_POR_SACA;
+    const sc60 = peso / KG_POR_SACA;
     const hectares = toNum(pickCol(row, 'hectares'));
     const hectaresColhidos = toNum(pickCol(row, 'hectares_colhidos'));
-    const scHa = toNum(pickCol(row, 'qtd_sc_hectares'));
+    const scHaSql = toNum(pickCol(row, 'qtd_sc_hectares'));
+    const scHa =
+      hectaresColhidos > 0 ? sc60 / hectaresColhidos : scHaSql;
     const fin = isFinalizado(pickCol(row, 'finalizado'));
 
     totalKg += peso;
